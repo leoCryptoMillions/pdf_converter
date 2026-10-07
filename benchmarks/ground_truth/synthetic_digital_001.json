@@ -1,0 +1,24 @@
+{
+  "file_id": "synthetic_digital_001",
+  "pages": [
+    {
+      "page_number": 1,
+      "text": "FACTURA DE PRUEBA SINTÉTICA (datos ficticios)\nDocumento generado automáticamente para probar el manejo de PDFs cifrados y corruptos (categorías adversarial_encrypted / adversarial_corrupt). No contiene datos reales.",
+      "tables": [
+        {
+          "bbox": null,
+          "rows": [
+            ["Concepto", "Cantidad", "Precio Unitario", "Importe"],
+            ["Servicio de prueba A", "2", "$100.00", "$200.00"],
+            ["Servicio de prueba B", "1", "$350.50", "$350.50"],
+            ["Licencia de software (demo)", "5", "$40.00", "$200.00"],
+            ["Total", "", "", "$750.50"]
+          ],
+          "critical_cells": [
+            {"row": 4, "col": 3, "value": "$750.50", "reason": "total - no debe cambiar silenciosamente"}
+          ]
+        }
+      ]
+    }
+  ]
+}
