@@ -1,0 +1,214 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-converter"
+version = "0.1.0"
+description = "Web application for converting PDFs to multiple formats (Excel, Word, CSV, etc.)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "PDF Converter Team"},
+]
+keywords = ["pdf", "conversion", "excel", "word", "ocr", "fastapi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Spanish",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Multimedia",
+]
+
+dependencies = [
+    # Core Framework
+    "fastapi==0.104.1",
+    "uvicorn==0.24.0",
+    "pydantic==2.5.0",
+    "pydantic-settings==2.1.0",
+
+    # Database
+    "sqlalchemy==2.0.23",
+    "alembic==1.12.1",
+    "psycopg2-binary==2.9.9",
+    "sqlmodel==0.0.14",
+
+    # PDF Processing
+    "pdfplumber==0.10.3",
+    "pypdfium2==4.24.0",
+    "pytesseract==0.3.10",
+    "pdf2image==1.16.3",
+    "ocrmypdf==15.1.0",
+    "docling==1.1.0",
+    "camelot-py==0.11.0",
+
+    # Office Format Export
+    "openpyxl==3.11.0",
+    "python-docx==0.8.11",
+    "python-pptx==0.6.23",
+
+    # Task Queue
+    "celery==5.3.4",
+    "redis==5.0.1",
+    "kombu==5.3.3",
+
+    # Security
+    "python-jose==3.3.0",
+    "passlib==1.7.4",
+    "bcrypt==4.1.1",
+    "cryptography==41.0.7",
+
+    # Data Processing
+    "pandas==2.1.3",
+    "numpy==1.26.2",
+    "pillow==10.1.0",
+
+    # HTTP & API
+    "httpx==0.25.2",
+    "requests==2.31.0",
+
+    # Utilities
+    "python-multipart==0.0.6",
+    "aiofiles==23.2.1",
+    "python-dateutil==2.8.2",
+    "pytz==2023.3",
+
+    # Logging & Monitoring
+    "structlog==23.3.0",
+    "python-json-logger==2.0.7",
+    "prometheus-client==0.19.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.3",
+    "pytest-asyncio==0.21.1",
+    "pytest-cov==4.1.0",
+    "pytest-mock==3.12.0",
+    "pytest-watch==4.2.0",
+    "black==23.12.0",
+    "isort==5.13.2",
+    "flake8==6.1.0",
+    "pylint==3.0.3",
+    "mypy==1.7.1",
+    "types-requests",
+    "types-pytz",
+    "pre-commit==3.6.0",
+]
+
+benchmark = [
+    "pytest-benchmark==4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/pdf-converter"
+Repository = "https://github.com/yourusername/pdf-converter.git"
+Documentation = "https://github.com/yourusername/pdf-converter/tree/main/docs"
+Issues = "https://github.com/yourusername/pdf-converter/issues"
+
+[tool.setuptools]
+packages = ["apps", "packages"]
+
+[tool.setuptools.package-data]
+packages = ["*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+known_first_party = ["apps", "packages"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "alembic.*",
+]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --tb=short"
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "unit: unit tests",
+    "integration: integration tests",
+    "e2e: end-to-end tests",
+    "security: security tests",
+    "benchmark: performance benchmark tests",
+    "slow: slow running tests",
+    "asyncio: async tests",
+]
+
+[tool.coverage.run]
+source = ["apps", "packages"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if 0:",
+    "if False:",
+]
+precision = 2
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-docstring",
+    "too-few-public-methods",
+    "fixme",
+]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.design]
+max-attributes = 7
+max-arguments = 6

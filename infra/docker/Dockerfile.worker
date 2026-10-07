@@ -1,0 +1,53 @@
+# Dockerfile for PDF Converter Worker (Celery)
+
+FROM python:3.11-slim
+
+LABEL maintainer="PDF Converter Team"
+LABEL description="PDF Converter Celery Worker for PDF Processing"
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies including PDF processing tools
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    libssl-dev \
+    tesseract-ocr \
+    libtesseract-dev \
+    ghostscript \
+    imagemagick \
+    libmagick++-dev \
+    poppler-utils \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install additional OCR languages (optional)
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr-spa \
+    tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user for security (but allow access to tesseract)
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Set Tesseract path
+ENV TESSERACT_PATH=/usr/bin/tesseract
+
+# Set resource limits in container
+# Memory limit and CPU shares are set in docker-compose.yml
+
+EXPOSE 5555
+
+# Default command - can be overridden in docker-compose
+CMD ["celery", "-A", "apps.worker.tasks", "worker", "--loglevel=info"]

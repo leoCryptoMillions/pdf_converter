@@ -1,0 +1,105 @@
+# Environment
+.env
+.env.local
+.env.*.local
+venv/
+env/
+ENV/
+.venv
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+.mypy_cache/
+.dmypy.json
+dmypy.json
+*.pyo
+*.pyd
+.Python
+env.bak/
+venv.bak/
+
+# Node/Frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+.next/
+out/
+.nuxt
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Storage & Temporary
+/storage/
+/tmp/
+/temp/
+*.tmp
+*.pid
+.lock
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+.alembic_env/
+migrations/__pycache__/
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Sensitive files
+*.key
+*.pem
+*.p12
+.ssh/
+private/
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# IDE specific Python
+.pylintrc
+setup.cfg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Production files (git LFS or manual exclusion)
+# *.pdf  # Large PDFs excluded only if needed
+# *.zip  # Archives
+
+# Generated
+openapi.json
+.generated/
