@@ -91,7 +91,7 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 ## Tareas en Progreso
 
 ### Preparación de Corpus (P01) - CRÍTICA
-**Estado:** EN PROGRESO — 36/60 PDFs recolectados y categorizados
+**Estado:** EN PROGRESO — 37/60 PDFs recolectados y categorizados
 **Duración Estimada:** 3-5 días
 **Criterio de Salida:** 60+ PDFs categorizados con ground truth
 
@@ -101,7 +101,7 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 - `benchmarks/generate_synthetic_adversarial.py` — genera PDFs sintéticos cifrado/corrupto a partir de una factura ficticia
 - `benchmarks/generate_synthetic_id_card.py` — genera un mockup de credencial INE 100% ficticio (foto placeholder dibujada), usado en vez de un INE real que fue descartado del corpus
 - `benchmarks/ground_truth/README.md` + `synthetic_digital_001.json` (primer ground truth real, del PDF sintético)
-- `benchmarks/corpus/files/` — 35 PDFs copiados (no versionados)
+- `benchmarks/corpus/files/` — 36 PDFs copiados (no versionados)
 
 **Cobertura actual por categoría (meta: 10 c/u en las 6 principales):**
 
@@ -111,7 +111,7 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 | `digital_complex_table` | 7 | 10 | faltan 3 |
 | `digital_text_columns` | **11** | 10 | ✅ completa |
 | `scanned_clean` | 5 (2 escaneos reales + 1 mockup sintético de ID) | 10 | faltan 5 |
-| `scanned_difficult` | 1 (primer real: foto con celular, inclinada/sombra) | 10 | faltan 9 |
+| `scanned_difficult` | 2 (foto celular inclinada + escaneo con deformación/sombra) | 10 | faltan 8 |
 | `mixed` | 4 | 10 | faltan 6 |
 | `adversarial_encrypted` | 1 (sintético) | — | cubierto para P02 inicial |
 | `adversarial_corrupt` | 1 (sintético) | — | cubierto para P02 inicial |
