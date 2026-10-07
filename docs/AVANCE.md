@@ -91,16 +91,16 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 ## Tareas en Progreso
 
 ### Preparación de Corpus (P01) - CRÍTICA
-**Estado:** EN PROGRESO — 27/60 PDFs recolectados y categorizados
+**Estado:** EN PROGRESO — 30/60 PDFs recolectados y categorizados
 **Duración Estimada:** 3-5 días
 **Criterio de Salida:** 60+ PDFs categorizados con ground truth
 
 **Entregado:**
 - `benchmarks/README.md` — flujo completo P01 → P02 → Gate F0
-- `benchmarks/corpus_manifest.csv` — 27 filas cargadas y validadas (23 PDFs reales de Quark Payments + 3 sintéticos + 1 duplicado adicional)
+- `benchmarks/corpus_manifest.csv` — 30 filas cargadas y validadas
 - `benchmarks/generate_synthetic_adversarial.py` — genera PDFs sintéticos cifrado/corrupto a partir de una factura ficticia
 - `benchmarks/ground_truth/README.md` + `synthetic_digital_001.json` (primer ground truth real, del PDF sintético)
-- `benchmarks/corpus/files/` — 26 PDFs ya copiados (no versionados)
+- `benchmarks/corpus/files/` — 29 PDFs copiados (no versionados)
 
 **Cobertura actual por categoría (meta: 10 c/u en las 6 principales):**
 
@@ -108,22 +108,24 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 |---|---|---|---|
 | `digital_simple_table` | 6 | 10 | faltan 4 |
 | `digital_complex_table` | 7 | 10 | faltan 3 |
-| `digital_text_columns` | 6 | 10 | faltan 4 |
-| `scanned_clean` | 2 (sin confirmar si son escaneos reales) | 10 | faltan 8 |
+| `digital_text_columns` | 8 | 10 | faltan 2 |
+| `scanned_clean` | 3 (1 confirmado visualmente como escaneo real limpio) | 10 | faltan 7 |
 | `scanned_difficult` | 0 | 10 | faltan 10 |
 | `mixed` | 4 | 10 | faltan 6 |
 | `adversarial_encrypted` | 1 (sintético) | — | cubierto para P02 inicial |
 | `adversarial_corrupt` | 1 (sintético) | — | cubierto para P02 inicial |
 | `adversarial_large` | 0 (candidato: mixed_001, 10.49 MB) | — | sin PDF dedicado |
 
-**Brecha más crítica:** `scanned_clean` y `scanned_difficult` — no se ha conseguido ningún escaneo real (foto/scanner) de un documento del tipo que la app procesará (factura, estado de cuenta). Los 2 PDFs en `scanned_clean` son archivos sin texto extraíble pero de otro proyecto (manual de cargador BYD), no representativos del caso de uso real.
+**Brecha más crítica:** `scanned_difficult` sigue en cero. `scanned_clean` consiguió su primer escaneo real representativo (recibo Telmex, `scanned_003`), pero aún faltan 7 más.
+
+**Nota de sensibilidad:** el corpus ya incluye documentos con datos personales reales de terceros (RFC y domicilio de personas físicas ajenas a Quark Payments) — autorizados explícitamente por el usuario para uso interno. Todo el contenido permanece local (`.gitignore`); el manifest documenta la fuente (`tercero_autorizado` vs `quark_payments_interno` vs `synthetic`) para trazabilidad.
 
 **Acciones Siguientes:**
-1. [x] Definir fuente de PDFs de prueba (archivos internos de Quark Payments)
-2. [x] Obtener autorización de uso (confirmado por el usuario)
-3. [x] Copiar PDFs a `benchmarks/corpus/files/` y completar `corpus_manifest.csv` (27 filas)
-4. [ ] Conseguir escaneos reales (foto/scanner) para `scanned_clean`/`scanned_difficult` — bloqueador restante
-5. [ ] Completar `digital_simple_table`, `digital_complex_table`, `digital_text_columns` y `mixed` hasta 10 c/u
+1. [x] Definir fuente de PDFs de prueba (archivos internos de Quark Payments + documentos de terceros autorizados)
+2. [x] Obtener autorización de uso (confirmado por el usuario en ambas rondas)
+3. [x] Copiar PDFs a `benchmarks/corpus/files/` y completar `corpus_manifest.csv` (30 filas)
+4. [ ] Conseguir más escaneos reales, especialmente de baja calidad, para `scanned_difficult` — bloqueador restante
+5. [ ] Completar `digital_simple_table`, `digital_complex_table`, `digital_text_columns`, `scanned_clean` y `mixed` hasta 10 c/u
 6. [ ] Anotar ground truth de los PDFs reales (solo el sintético tiene ground truth hoy)
 7. [ ] Separar conjunto de desarrollo vs evaluación
 
