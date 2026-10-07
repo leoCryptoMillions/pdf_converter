@@ -11,8 +11,8 @@ proyecto: conversion-pdf
 plan_version: 1.0.0
 actualizado: 2026-10-07
 fase_actual: F0 - Viabilidad
-fase_detalle: P01 - Definir corpus y métricas
-estado: iniciado
+fase_detalle: P01 - Definir corpus y métricas (herramientas listas, corpus pendiente)
+estado: en_progreso
 ultimo_commit: pendiente
 completado:
   - Lectura de plan
@@ -21,16 +21,19 @@ completado:
   - Creación de estructura de proyecto
   - Definición de modelos IR
   - Configuración de dependencias
+  - Herramientas de benchmark P02 (tables_benchmark.py, ocr_benchmark.py, runner.py)
+  - Plantilla de manifest de corpus y ground truth (P01)
 pendiente_verificacion:
   - Bootstrap de proyecto
   - Funcionalidad mínima de API
 decisiones: []
-bloqueos: []
+bloqueos:
+  - Corpus de 60 PDFs autorizados aún no recolectado
 pruebas_ejecutadas: []
 metricas_medidas: []
 riesgos_abiertos:
   - Corpus de 60 PDFs no disponible aún
-  - Benchmark de motores no ejecutado
+  - Benchmark de motores no ejecutado (herramienta lista, falta corpus real)
   - Gate F0 sin criterios cuantitativos finales
 siguiente_tarea: P01_preparar_corpus_autorizado
 criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
@@ -88,9 +91,15 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 ## Tareas en Progreso
 
 ### Preparación de Corpus (P01) - CRÍTICA
-**Estado:** NO INICIADO  
-**Duración Estimada:** 3-5 días  
+**Estado:** EN PROGRESO — herramientas y plantillas listas, corpus real pendiente
+**Duración Estimada:** 3-5 días
 **Criterio de Salida:** 60+ PDFs categorizados con ground truth
+
+**Entregado:**
+- `benchmarks/README.md` — flujo completo P01 → P02 → Gate F0
+- `benchmarks/corpus_manifest.csv` — plantilla con columnas y categorías
+- `benchmarks/ground_truth/README.md` — plantilla de anotación JSON
+- `benchmarks/corpus/files/` — carpeta destino para los PDFs (no versionada)
 
 **Requerimientos:**
 - Mínimo 60 PDFs autorizados
@@ -106,14 +115,20 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 **Acciones Siguientes:**
 1. [ ] Definir fuente de PDFs de prueba
 2. [ ] Obtener autorización de uso
-3. [ ] Crear manifest de corpus
-4. [ ] Anotar ground truth (texto, tablas, celdas críticas)
+3. [ ] Copiar PDFs a `benchmarks/corpus/files/` y completar `corpus_manifest.csv`
+4. [ ] Anotar ground truth (texto, tablas, celdas críticas) en `benchmarks/ground_truth/`
 5. [ ] Separar conjunto de desarrollo vs evaluación
 
 ### Benchmarking de Motores (P02) - CRÍTICA
-**Estado:** PLANIFICADO  
-**Después de:** P01  
+**Estado:** HERRAMIENTA LISTA — bloqueada por P01 (sin corpus real aún no hay métricas)
+**Después de:** P01
 **Duración Estimada:** 3-5 días
+
+**Entregado:**
+- `benchmarks/tables_benchmark.py` — pdfplumber vs Camelot vs Docling, F1 por fila de tabla
+- `benchmarks/ocr_benchmark.py` — Tesseract (con/sin preprocesamiento OCRmyPDF), CER
+- `benchmarks/runner.py` — corre ambos y evalúa contra los umbrales del Gate F0
+- `make benchmark` / `make benchmark-tables` / `make benchmark-ocr`
 
 **Motores a Evaluar:**
 - pdfplumber vs Camelot vs Docling (tablas)

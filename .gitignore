@@ -100,6 +100,13 @@ setup.cfg
 # *.pdf  # Large PDFs excluded only if needed
 # *.zip  # Archives
 
+# F0 Benchmark corpus (real PDFs are never committed - see benchmarks/README.md)
+benchmarks/corpus/files/*
+!benchmarks/corpus/files/.gitkeep
+benchmarks/results/*.json
+benchmarks/results/*.csv
+!benchmarks/results/.gitkeep
+
 # Generated
 openapi.json
 .generated/

@@ -1,0 +1,2 @@
+file_id,filename,category,page_count,source,authorized,has_ground_truth,notes
+example_001,example_digital_table.pdf,digital_simple_table,1,synthetic,no,no,"Fila de ejemplo - reemplazar con PDFs reales del corpus"
