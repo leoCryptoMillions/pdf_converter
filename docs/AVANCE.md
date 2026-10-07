@@ -91,16 +91,16 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 ## Tareas en Progreso
 
 ### Preparación de Corpus (P01) - CRÍTICA
-**Estado:** EN PROGRESO — 31/60 PDFs recolectados y categorizados
+**Estado:** EN PROGRESO — 32/60 PDFs recolectados y categorizados
 **Duración Estimada:** 3-5 días
 **Criterio de Salida:** 60+ PDFs categorizados con ground truth
 
 **Entregado:**
 - `benchmarks/README.md` — flujo completo P01 → P02 → Gate F0
-- `benchmarks/corpus_manifest.csv` — 31 filas cargadas y validadas
+- `benchmarks/corpus_manifest.csv` — 32 filas cargadas y validadas
 - `benchmarks/generate_synthetic_adversarial.py` — genera PDFs sintéticos cifrado/corrupto a partir de una factura ficticia
 - `benchmarks/ground_truth/README.md` + `synthetic_digital_001.json` (primer ground truth real, del PDF sintético)
-- `benchmarks/corpus/files/` — 30 PDFs copiados (no versionados)
+- `benchmarks/corpus/files/` — 31 PDFs copiados (no versionados)
 
 **Cobertura actual por categoría (meta: 10 c/u en las 6 principales):**
 
@@ -110,13 +110,13 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 | `digital_complex_table` | 7 | 10 | faltan 3 |
 | `digital_text_columns` | 8 | 10 | faltan 2 |
 | `scanned_clean` | 4 (2 confirmados visualmente como escaneos reales de buena calidad) | 10 | faltan 6 |
-| `scanned_difficult` | 0 | 10 | faltan 10 |
+| `scanned_difficult` | 1 (primer real: foto con celular, inclinada/sombra) | 10 | faltan 9 |
 | `mixed` | 4 | 10 | faltan 6 |
 | `adversarial_encrypted` | 1 (sintético) | — | cubierto para P02 inicial |
 | `adversarial_corrupt` | 1 (sintético) | — | cubierto para P02 inicial |
 | `adversarial_large` | 0 (candidato: mixed_001, 10.49 MB) | — | sin PDF dedicado |
 
-**Brecha más crítica:** `scanned_difficult` sigue en cero. `scanned_clean` ya tiene 2 escaneos reales de buena calidad (recibo Telmex `scanned_003`, acta notarial `scanned_004`), pero aún faltan 6 más y ninguno de baja calidad/difícil.
+**Brecha más crítica:** `scanned_difficult` tiene su primera muestra real pero sigue muy por debajo de la meta (1/10). `scanned_clean` tiene 2 escaneos reales de buena calidad (recibo Telmex `scanned_003`, acta notarial `scanned_004`). Todas las categorías principales siguen por debajo de 10.
 
 **Nota de sensibilidad:** el corpus ya incluye documentos con datos personales reales de terceros (RFC, CURP, domicilio y fecha de nacimiento de personas físicas ajenas a Quark Payments, incluyendo un acta notarial protocolizada de una empresa distinta) — autorizados explícitamente por el usuario para uso interno, caso por caso. Todo el contenido permanece local (`.gitignore`); el manifest documenta la fuente (`tercero_autorizado` vs `quark_payments_interno` vs `synthetic`) para trazabilidad.
 
