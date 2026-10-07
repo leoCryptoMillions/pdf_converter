@@ -91,16 +91,17 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 ## Tareas en Progreso
 
 ### Preparación de Corpus (P01) - CRÍTICA
-**Estado:** EN PROGRESO — 32/60 PDFs recolectados y categorizados
+**Estado:** EN PROGRESO — 36/60 PDFs recolectados y categorizados
 **Duración Estimada:** 3-5 días
 **Criterio de Salida:** 60+ PDFs categorizados con ground truth
 
 **Entregado:**
 - `benchmarks/README.md` — flujo completo P01 → P02 → Gate F0
-- `benchmarks/corpus_manifest.csv` — 32 filas cargadas y validadas
+- `benchmarks/corpus_manifest.csv` — 36 filas cargadas y validadas
 - `benchmarks/generate_synthetic_adversarial.py` — genera PDFs sintéticos cifrado/corrupto a partir de una factura ficticia
+- `benchmarks/generate_synthetic_id_card.py` — genera un mockup de credencial INE 100% ficticio (foto placeholder dibujada), usado en vez de un INE real que fue descartado del corpus
 - `benchmarks/ground_truth/README.md` + `synthetic_digital_001.json` (primer ground truth real, del PDF sintético)
-- `benchmarks/corpus/files/` — 31 PDFs copiados (no versionados)
+- `benchmarks/corpus/files/` — 35 PDFs copiados (no versionados)
 
 **Cobertura actual por categoría (meta: 10 c/u en las 6 principales):**
 
@@ -108,15 +109,17 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 |---|---|---|---|
 | `digital_simple_table` | 6 | 10 | faltan 4 |
 | `digital_complex_table` | 7 | 10 | faltan 3 |
-| `digital_text_columns` | 8 | 10 | faltan 2 |
-| `scanned_clean` | 4 (2 confirmados visualmente como escaneos reales de buena calidad) | 10 | faltan 6 |
+| `digital_text_columns` | **11** | 10 | ✅ completa |
+| `scanned_clean` | 5 (2 escaneos reales + 1 mockup sintético de ID) | 10 | faltan 5 |
 | `scanned_difficult` | 1 (primer real: foto con celular, inclinada/sombra) | 10 | faltan 9 |
 | `mixed` | 4 | 10 | faltan 6 |
 | `adversarial_encrypted` | 1 (sintético) | — | cubierto para P02 inicial |
 | `adversarial_corrupt` | 1 (sintético) | — | cubierto para P02 inicial |
-| `adversarial_large` | 0 (candidato: mixed_001, 10.49 MB) | — | sin PDF dedicado |
+| `adversarial_large` | 0 dedicado (candidatos: `mixed_001` 10.49 MB, `yucash_manual_001` 148 páginas — excede MAX_PAGES_PER_JOB=100) | — | sin PDF dedicado, pero hay 2 candidatos reales |
 
-**Brecha más crítica:** `scanned_difficult` tiene su primera muestra real pero sigue muy por debajo de la meta (1/10). `scanned_clean` tiene 2 escaneos reales de buena calidad (recibo Telmex `scanned_003`, acta notarial `scanned_004`). Todas las categorías principales siguen por debajo de 10.
+**Brecha más crítica:** `scanned_difficult` (1/10) y `mixed` (4/10) son las más atrasadas. `digital_text_columns` ya alcanzó la meta — primera categoría completa.
+
+**Nota de seguridad — documento descartado:** el usuario subió un escaneo real de una credencial INE (identificación oficial con foto, CURP, domicilio y firma de una persona). Se decidió **no incluirlo** en el corpus por su sensibilidad extrema (riesgo de suplantación de identidad si el archivo se filtrara). Se sustituyó por `synthetic_ine_001`, un mockup con datos 100% ficticios. **El archivo original (`INE_LUIS_ARENAS.pdf`) sigue en `benchmarks/corpus/files/` sin usarse — se recomienda borrarlo.**
 
 **Nota de sensibilidad:** el corpus ya incluye documentos con datos personales reales de terceros (RFC, CURP, domicilio y fecha de nacimiento de personas físicas ajenas a Quark Payments, incluyendo un acta notarial protocolizada de una empresa distinta) — autorizados explícitamente por el usuario para uso interno, caso por caso. Todo el contenido permanece local (`.gitignore`); el manifest documenta la fuente (`tercero_autorizado` vs `quark_payments_interno` vs `synthetic`) para trazabilidad.
 
