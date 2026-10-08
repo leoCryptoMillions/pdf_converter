@@ -106,7 +106,12 @@ benchmarks/corpus/files/*
 benchmarks/results/*.json
 benchmarks/results/*.csv
 !benchmarks/results/.gitkeep
+benchmarks/.tessdata/
 
 # Generated
 openapi.json
 .generated/
+
+# References transcribed from authorized real documents remain local.
+benchmarks/ground_truth/local/
+benchmarks/review/

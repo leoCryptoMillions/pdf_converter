@@ -1,0 +1,6 @@
+# F0 subset tested on Python 3.13; production dependency reconciliation is pending.
+pdfplumber==0.11.10
+pydantic==2.13.5
+openpyxl==3.1.5
+python-docx==1.2.0
+reportlab==5.0.1

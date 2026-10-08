@@ -1,17 +1,17 @@
 # Progreso del Proyecto - PDF Converter
 
 Versión del Plan: 1.0.0  
-Fecha de Actualización: 2026-10-07  
-Estado Actual: **INICIADO - Fase P01 (Corpus y Métricas)**
+Fecha de Actualización: 2026-10-08
+Estado Actual: **F0 EN PROGRESO — prototipo CLI y muestra validada; gate pendiente**
 
 ## Estado Resumen
 
 ```yaml
 proyecto: conversion-pdf
 plan_version: 1.0.0
-actualizado: 2026-10-07
+actualizado: 2026-10-08
 fase_actual: F0 - Viabilidad
-fase_detalle: P01 - Definir corpus y métricas (herramientas listas, corpus pendiente)
+fase_detalle: P01/P02 - 37 PDFs, referencias parciales y prototipo F0 medido
 estado: en_progreso
 ultimo_commit: pendiente
 completado:
@@ -23,20 +23,42 @@ completado:
   - Configuración de dependencias
   - Herramientas de benchmark P02 (tables_benchmark.py, ocr_benchmark.py, runner.py)
   - Plantilla de manifest de corpus y ground truth (P01)
+  - CLI digital PDF a XLSX, DOCX y TXT con IR y advertencias
+  - Cinco referencias visuales reales locales con alcance y SHA256, más una sintética
+  - Métricas CER exacto y F1 de filas con multiplicidad de duplicados
+  - Validación de contenido XLSX y edición/guardado/reapertura DOCX
+  - Doce tareas de creación/ampliación y split provisional por hash
+  - Selección de páginas conservando procedencia y límites por documento
+  - Referencia Word adjudicada y segunda ruta textual PDFium comparada
+  - Vínculos candidatos entre tablas consecutivas con advertencias, sin unir filas
+  - Validación de 16 celdas de frontera y transporte XLSX de ambos segmentos
+  - Catorce experimentos OCR y seis mediciones de tiempo/memoria
+  - Inventario instalado de 33 componentes y 61 archivos de avisos
 pendiente_verificacion:
   - Bootstrap de proyecto
   - Funcionalidad mínima de API
-decisiones: []
+decisiones:
+  - ADR 0004, prototipo local conservador; no aprobar F0 con esta muestra
 bloqueos:
   - Corpus de 60 PDFs autorizados aún no recolectado
-pruebas_ejecutadas: []
-metricas_medidas: []
+pruebas_ejecutadas:
+  - 41 pruebas de prototipo aprobadas; dos avisos de configuración; sin cobertura global
+metricas_medidas:
+  - F1 filas pdfplumber 1.000 en tres PDFs; uno de ellos cubre solo la página 19
+  - XLSX real 26/26 celdas y 3/3 valores críticos conservados
+  - XLSX de página 19 conserva 88/88 celdas y 4/4 valores críticos
+  - CER Word normalizado 0 en dos rutas, una página real; referencia anterior corregida
+  - OCR limpio PSM 3, CER normalizado 3.723% portada y 0.968% texto continuo
+  - CER región OCR difícil normalizado 0.091255; no representa página completa
+  - Portada sin mejora en siete variantes; texto continuo experimental 0.899%
+  - Tiempo medio por página digital 1.276 s y OCR 4.194 s; tres procesos nuevos por ruta
 riesgos_abiertos:
   - Corpus de 60 PDFs no disponible aún
-  - Benchmark de motores no ejecutado (herramienta lista, falta corpus real)
+  - Muestra insuficiente; faltan documentos completos y unión de tablas multipágina
+  - Portada OCR limpio falla umbral candidato de 2%; no ocultar con promedio
   - Gate F0 sin criterios cuantitativos finales
-siguiente_tarea: P01_preparar_corpus_autorizado
-criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
+siguiente_tarea: P01_ampliar_referencias_y_P02_reconstruccion_de_filas_y_carga
+criterio_siguiente_tarea: documentos_completos_y_filas_partidas_con_referencia_independiente
 ```
 
 ## Tareas Completadas (P0 - Críticas)
@@ -97,11 +119,12 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 
 **Entregado:**
 - `benchmarks/README.md` — flujo completo P01 → P02 → Gate F0
-- `benchmarks/corpus_manifest.csv` — 36 filas cargadas y validadas
+- `benchmarks/corpus_manifest.csv` — 37 filas cargadas; seis con referencias, tres de alcance parcial
 - `benchmarks/generate_synthetic_adversarial.py` — genera PDFs sintéticos cifrado/corrupto a partir de una factura ficticia
 - `benchmarks/generate_synthetic_id_card.py` — genera un mockup de credencial INE 100% ficticio (foto placeholder dibujada), usado en vez de un INE real que fue descartado del corpus
-- `benchmarks/ground_truth/README.md` + `synthetic_digital_001.json` (primer ground truth real, del PDF sintético)
-- `benchmarks/corpus/files/` — 36 PDFs copiados (no versionados)
+- `benchmarks/ground_truth/README.md` + `synthetic_digital_001.json` (referencia sintética de tablas)
+- `benchmarks/ground_truth/local/` — cinco referencias revisadas de documentos reales; no versionadas
+- `benchmarks/corpus/files/` — 37 PDFs registrados (no versionados)
 
 **Cobertura actual por categoría (meta: 10 c/u en las 6 principales):**
 
@@ -117,7 +140,7 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 | `adversarial_corrupt` | 1 (sintético) | — | cubierto para P02 inicial |
 | `adversarial_large` | 0 dedicado (candidatos: `mixed_001` 10.49 MB, `yucash_manual_001` 148 páginas — excede MAX_PAGES_PER_JOB=100) | — | sin PDF dedicado, pero hay 2 candidatos reales |
 
-**Brecha más crítica:** `scanned_difficult` (1/10) y `mixed` (4/10) son las más atrasadas. `digital_text_columns` ya alcanzó la meta — primera categoría completa.
+**Brecha más crítica:** `scanned_difficult` (2/10) y `mixed` (4/10) son las más atrasadas. `digital_text_columns` ya alcanzó la meta — primera categoría completa.
 
 **Nota de seguridad — documento descartado:** el usuario subió un escaneo real de una credencial INE (identificación oficial con foto, CURP, domicilio y firma de una persona). Se decidió **no incluirlo** en el corpus por su sensibilidad extrema (riesgo de suplantación de identidad si el archivo se filtrara). Se sustituyó por `synthetic_ine_001`, un mockup con datos 100% ficticios. **El archivo original (`INE_LUIS_ARENAS.pdf`) sigue en `benchmarks/corpus/files/` sin usarse — se recomienda borrarlo.**
 
@@ -129,11 +152,11 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 3. [x] Copiar PDFs a `benchmarks/corpus/files/` y completar `corpus_manifest.csv` (30 filas)
 4. [ ] Conseguir más escaneos reales, especialmente de baja calidad, para `scanned_difficult` — bloqueador restante
 5. [ ] Completar `digital_simple_table`, `digital_complex_table`, `digital_text_columns`, `scanned_clean` y `mixed` hasta 10 c/u
-6. [ ] Anotar ground truth de los PDFs reales (solo el sintético tiene ground truth hoy)
-7. [ ] Separar conjunto de desarrollo vs evaluación
+6. [ ] Ampliar ground truth real (hay tablas simples, una página de tablas complejas, texto Word, dos páginas OCR limpio y una región OCR difícil)
+7. [ ] Finalizar desarrollo/evaluación por origen y plantilla (split por hash ya generado)
 
 ### Benchmarking de Motores (P02) - CRÍTICA
-**Estado:** HERRAMIENTA LISTA — bloqueada por P01 (sin corpus real aún no hay métricas)
+**Estado:** PIPELINE VALIDADO — muestra inicial medida; falta ampliar referencias por clase. La corrida 2026-10-07 descrita abajo es histórica; ver validación 2026-10-08 al final.
 **Después de:** P01
 **Duración Estimada:** 3-5 días
 
@@ -142,6 +165,28 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 - `benchmarks/ocr_benchmark.py` — Tesseract (con/sin preprocesamiento OCRmyPDF), CER
 - `benchmarks/runner.py` — corre ambos y evalúa contra los umbrales del Gate F0
 - `make benchmark` / `make benchmark-tables` / `make benchmark-ocr`
+
+**Corrida de validación (2026-10-07) — entorno de desarrollo Windows:**
+
+Instalado para esta prueba (no son las versiones pineadas de producción en `requirements.txt`, se usaron las últimas disponibles solo para validar el pipeline):
+- Binarios del sistema: Tesseract 5.4.0 (vía winget `UB-Mannheim.TesseractOCR`) + Poppler 25.07.0 (vía winget `oschwartz10612.Poppler`)
+- Datos de idioma Tesseract (eng+spa+osd) en `benchmarks/.tessdata/` (gitignored) vía `TESSDATA_PREFIX`, porque la instalación en `Program Files` requiere admin y solo trae inglés por defecto
+- Paquetes Python: `pdfplumber`, `pytesseract`, `pdf2image`, `camelot-py[cv]` 2.0.0, `ocrmypdf` 17.13.0
+- **Docling no se instaló** (dependencias ML pesadas) — se omitió explícitamente para esta corrida, reportado como "DepMissing", no como error
+
+**Resultado (13 PDFs con tabla, 11 PDFs para OCR):**
+
+| Motor | Corrió | Errores | Notas |
+|---|---|---|---|
+| pdfplumber | 13/13 | 0 | F1=1.000 en el único PDF con ground truth (sintético) |
+| camelot | 13/13 | 0 | F1=1.000 en el mismo PDF |
+| docling | 0/13 | — | Dependencia no instalada (omitido a propósito) |
+| tesseract | 11/11 | 0 | Sin ground truth real aún → no hay CER medido |
+| tesseract+ocrmypdf | 10/11 | 1 | Error legítimo: una imagen embebida de resolución extrema (>178M píxeles) dispara el límite anti-"decompression bomb" de Pillow — hallazgo real, no bug del benchmark |
+
+**Bug encontrado y corregido en `benchmarks/common.py`:** `print_summary` contaba las filas con "dependencia faltante" como "0 errores" (parecía que todo corría bien cuando en realidad no se ejecutó nada). Ahora distingue explícitamente `Ran` / `Errors` / `DepMissing` / `Scored`.
+
+**Conclusión:** el pipeline de P02 funciona de extremo a extremo en Windows. La métrica real de calidad (F1/CER) sigue bloqueada por la falta de ground truth en los PDFs reales — es el siguiente paso crítico, no instalar más dependencias.
 
 **Motores a Evaluar:**
 - pdfplumber vs Camelot vs Docling (tablas)
@@ -159,9 +204,12 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 ### F0 - Viabilidad (1-2 semanas)
 - [ ] P01: Corpus autorizado y métricas
 - [ ] P02: Benchmark de motores
-- [ ] P03: Revisar viabilidad XLSX digital
-- [ ] P04: Revisar viabilidad DOCX digital
-- [ ] P05: Gate F0 (Go/No-Go)
+- [x] Experimento F0: prototipo XLSX digital y muestra inicial validada
+- [x] Experimento F0: prototipo DOCX editable; brecha de texto medida
+- [ ] Gate F0: calidad por clase, licencias y costo (Go/No-Go)
+
+Los IDs P03/P04/P05 del plan corresponden a IR/API, aislamiento y permisos/storage.
+Los prototipos no completan P08/P10 de producción ni el flujo TXT web P07.
 
 **Gate F0:** Ir a F1 solo con evidencia de:
 - XLSX digital simple funcional
@@ -215,9 +263,11 @@ criterio_siguiente_tarea: manifest_de_60_pdfs_con_ground_truth
 
 | Bloqueador | Impacto | Solución | ETA |
 |-----------|---------|---------|-----|
-| Sin corpus de prueba | P01 crítico bloqueado | Obtener/generar PDFs autorizados | 2-3 días |
-| Motores sin evaluar | F0 gate incompleto | Ejecutar benchmark (P02) | Después P01 |
-| Herramientas OCR sin instalar | F4 planificación afectada | Setup de Tesseract + OCRmyPDF | Antes F0 evaluación |
+| Corpus incompleto (37 registrados) | Cobertura P01 insuficiente | Completar seis clases y referencias visuales | Por definir |
+| Word validado en un solo diseño | Evidencia insuficiente para prometer soporte general | Anotar otros diseños y evaluar estructura/imágenes | Por definir |
+| Referencias parciales de tablas complejas y OCR limpio | Gate sin cobertura documental completa | Ampliar páginas adyacentes y documentos reservados | Después de anotar |
+| Portada OCR limpio con CER normalizado 3.723% | Supera umbral candidato 2% | Comparar segmentación/preprocesamiento por layout | Por definir |
+| Licencias/costo y aislamiento de producción pendientes | No se puede aprobar F0/F1 | Revisión del stack efectivo y medición de recursos | Antes de F1 |
 
 ## Riesgos Monitoreados
 
@@ -364,7 +414,73 @@ celery -A tasks worker --loglevel=info
 | Calidad/QA | TBD | - | Asignar |
 | Seguridad/DevOps | TBD | - | Asignar |
 
-## Próxima Actualización
+## Validación del prototipo — 2026-10-08
+
+Entregables: `apps/convert.py`, extractor `packages/converters/digital.py`,
+exportadores `packages/exporters/xlsx.py` y `docx.py`, herramientas
+`benchmarks/prepare_review.py` y `validate_prototype.py`, y 31 pruebas.
+Uso, métricas y límites: [PROTOTIPO_F0.md](PROTOTIPO_F0.md).
+Decisión de alcance: [ADR 0004](adr/0004-f0-local-prototype.md).
+
+Comandos realmente ejecutados:
+
+```powershell
+python -m pip install --target .generated/deps python-docx==1.2.0
+python -m apps.convert benchmarks/corpus/files/synthetic_base_invoice.pdf --output .generated/check_initial --formats xlsx txt
+python -m benchmarks.prepare_review
+$env:PYTHONPATH = (Join-Path (Get-Location) '.generated/deps')
+python -m benchmarks.validate_prototype
+python -m pytest tests/unit/test_f0_prototype.py -o addopts='--strict-markers --tb=short -q'
+```
+
+La última corrida de pruebas dio **31 passed**, con avisos de plugins ausentes
+para `asyncio_mode` y `timeout`. No se ejecutó cobertura global ni se validó
+Office/LibreOffice. El entorno bloqueó la lectura de dependencias locales;
+las corridas de pruebas y validación se aprobaron fuera del aislamiento.
+
+Resultados locales: `.generated/f0/report.json`, salidas por documento bajo
+`.generated/f0/<file_id>/`, referencias sensibles en
+`benchmarks/ground_truth/local/`, tareas y split en `benchmarks/review/`.
+Hay seis PDFs con referencia contando el sintético: tabla de página 19,
+texto completo de páginas 1 y 3 y una región OCR, además de las tres muestras
+iniciales. El split es provisional y evita cruzar duplicados exactos; falta
+agrupar por origen/plantilla. No publicar estos artefactos ni transcripciones.
+
+**Corrección de evidencia:** el CER Word inicial de 4.675% fue causado por
+una transcripción incorrecta e incompleta de la referencia. La ampliación
+visual confirmó el pie y las palabras del original; la referencia revisión 2
+da CER 0% en pdfplumber → DOCX y en la segunda ruta PDFium → DOCX textual.
+No se cambió la extracción para borrar el pie o corregir erratas del PDF.
+El reporte y la referencia anteriores se preservaron en `.generated/review_round2/`.
+
+La tabla de página 19 fue adjudicada con recortes a 6×: F1 de filas pdfplumber
+1.000 y 88/88 celdas; no valida unión de tablas. OCR limpio tiene CER normalizado
+3.723% en portada y 0.968% en texto continuo con PSM 3. PSM 6 empeora la portada
+a 60.106%; reportar separado, no elegir un promedio que esconda ese fallo.
+
+**Gate F0 permanece pendiente.** Faltan tamaño de muestra, estructura,
+documentos completos, licencias/costo y rendimiento. Mantener el experimento
+local; las páginas adyacentes y las variantes OCR ya se ensayaron con el
+alcance descrito en [PROTOTIPO_F0.md](PROTOTIPO_F0.md).
+
+## Punto de continuación guardado — 2026-10-08
+
+Sesión detenida por solicitud del usuario. Prototipo digital CLI y exportadores
+guardados, 41 pruebas aprobadas y validación de seis referencias ejecutada.
+Continuidad candidata comprobada con 16 celdas de frontera; no reconstruye
+filas partidas. Catorce experimentos OCR no mejoraron la portada (3.723%).
+Mediciones de recursos e inventario de dependencias permanecen locales en
+`.generated/`; referencias y PDFs sensibles conservan su exclusión de Git.
+
+GitHub Actions está deshabilitado en el repositorio (`enabled: false`),
+verificado mediante API. El workflow local conserva solo ejecución manual.
+
+Retomar ampliando referencias completas y verificando reconstrucción de filas
+partidas. Después medir carga y revisar binarios/modelos, dependencias del
+stack completo y tarifas. No aprobar F0 ni iniciar el flujo web con la muestra
+actual. Los detalles reproducibles están en `PROTOTIPO_F0.md` y `LICENCIAS.md`.
+
+## Calendario anterior (referencia histórica)
 
 **Fecha Planeada:** 2026-10-14 (después de completar P01)  
 **Actualizador:** Coordinador técnico  

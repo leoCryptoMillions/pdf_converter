@@ -266,7 +266,7 @@ class Page(BaseModel):
     rotation: int = Field(default=0, description="Rotation 0/90/180/270")
 
     classification: PageClassification = Field(..., description="Page type")
-    text_coverage: float = Field(..., description="Estimated text coverage 0-1")
+    text_coverage: Optional[float] = Field(None, description="Measured text coverage 0-1; null without reference")
     image_coverage: float = Field(..., description="Estimated image coverage 0-1")
 
     extracted_text: str = Field(default="", description="All text on page in order")
@@ -413,6 +413,8 @@ class DocumentIR(BaseModel):
                 return True
             for table in page.tables:
                 if table.warnings:
+                    return True
+                if any(cell.warnings for cell in table.cells):
                     return True
             for block in page.blocks:
                 if block.warnings:

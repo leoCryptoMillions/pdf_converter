@@ -3,6 +3,29 @@
 Un archivo JSON por PDF del corpus, nombrado `<file_id>.json` (el mismo
 `file_id` usado en `../corpus_manifest.csv`).
 
+Las transcripciones de documentos reales se guardan en `local/`, excluido
+de Git. El cargador busca primero allí y verifica `source_sha256` cuando
+está presente. No copiar datos reales a archivos versionados.
+
+Cada referencia nueva registra `review_status: "verified"`, `review_method`,
+`source_sha256` y `scope`: `tables_only`, `full_text`, `text_region`,
+`selected_pages_tables` o `selected_pages_text`.
+`reference_revision` distingue correcciones y ampliaciones posteriores.
+Los borradores (`review_status: "draft"`) no se puntúan. `has_ground_truth=yes`
+significa que existe una anotación revisada; su cobertura puede ser parcial.
+La referencia sintética anterior tiene cobertura de tablas, no texto completo.
+
+Una referencia `text_region` usa `pages[].text_regions[]` con `bbox_relative`
+en coordenadas relativas 0–1 desde la esquina superior izquierda y `text`.
+Solo `validate_prototype` puntúa estas regiones. Nunca usarlas para aprobar
+el criterio OCR de página completa.
+
+Para `selected_pages_*`, incluir exclusivamente las páginas anotadas con
+sus números originales. La extracción/exportación se limita a esas páginas.
+El resultado registra su alcance; no afirmar cobertura del PDF completo.
+Ampliar las referencias mediante `prepare_review`, que conserva tareas
+pendientes para documentos anotados parcialmente.
+
 ## Plantilla
 
 ```json

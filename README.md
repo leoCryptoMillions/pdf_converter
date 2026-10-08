@@ -4,6 +4,20 @@ Aplicación web para convertir PDFs digitales, escaneados y mixtos en archivos e
 
 ## Características Principales
 
+**Estado actual:** prototipo CLI de viabilidad (F0). La aplicación web,
+la carga de archivos y los trabajos de conversión siguen pendientes.
+Las características enumeradas a continuación describen el objetivo del MVP.
+
+Para probar el flujo local PDF → XLSX/DOCX/TXT:
+
+```bash
+python -m pip install -r requirements-prototype.txt
+python -m apps.convert benchmarks/corpus/files/synthetic_base_invoice.pdf --output .generated/demo --formats xlsx docx txt
+```
+
+La carpeta de salida debe ser nueva. Consulte [el prototipo F0](docs/PROTOTIPO_F0.md)
+para anotaciones, validación, tipos de Excel y limitaciones medidas.
+
 - Conversión de PDFs a múltiples formatos
 - Soporte para documentos digitales, escaneados y mixtos
 - OCR en español e inglés
@@ -113,7 +127,7 @@ pdf_converter/
 ├── docs/                 # Documentación
 ├── infra/                # Scripts de infraestructura
 ├── benchmarks/           # Suite de benchmark
-└── .github/workflows/    # CI/CD
+└── .github/workflows/    # Pruebas opcionales; Actions deshabilitado
 ```
 
 ## Comandos Útiles

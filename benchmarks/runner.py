@@ -6,7 +6,7 @@ Usage:
     make benchmark
 
 Thresholds below come from docs/ALCANCE.md ("Criterios de Éxito por Formato").
-This script does not auto-decide Go/No-Go (P05 is a team decision) - it only
+This script does not auto-decide Go/No-Go (Gate F0 is a separate decision) - it only
 reports whether the measured metrics clear each threshold, so the Gate F0
 discussion starts from evidence instead of opinion.
 """
@@ -66,7 +66,7 @@ def check_gate(table_results, ocr_results) -> None:
     report("CER OCR scanned_clean", scanned_clean_cer, GATE_THRESHOLDS["ocr_cer_scanned_clean"], False)
 
     print(
-        "\nNota: esto es evidencia de entrada para P05 (decisión Go/No-Go), "
+        "\nNota: esto es evidencia de entrada para Gate F0 (decisión Go/No-Go), "
         "no un veredicto automático. Actualiza docs/AVANCE.md con el resultado."
     )
 

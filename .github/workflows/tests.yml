@@ -1,10 +1,9 @@
 name: Tests and Code Quality
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  # Optional checks only. Repository Actions are disabled in GitHub settings.
+  # Re-enable Actions explicitly before running this workflow manually.
+  workflow_dispatch:
 
 jobs:
   test:

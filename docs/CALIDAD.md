@@ -350,17 +350,16 @@ pre-commit run --all-files  # Manual check
 
 ### 5.2 CI Pipeline (.github/workflows/tests.yml)
 
-Runs on:
-- [ ] Push a cualquier rama
-- [ ] Pull requests
+GitHub Actions deshabilitado en el repositorio por solicitud del usuario
+(2026-10-08). El workflow se conserva para uso opcional y su disparador local
+es únicamente `workflow_dispatch`; requiere reactivar Actions para ejecutarlo.
+No hay despliegues ni requisitos de checks en la rama `master` al revisar
+esta configuración. Las pruebas locales siguen disponibles.
 
-Steps:
-1. **Lint**: black, isort, flake8
-2. **Type Check**: mypy
-3. **Unit Tests**: pytest tests/unit/
-4. **Integration Tests**: pytest tests/integration/ (con docker-compose)
-5. **Coverage**: Report si < 80%
-6. **Security**: bandit, pip-audit
+El archivo conservado instala dependencias, levanta PostgreSQL y Redis como
+servicios temporales, ejecuta flake8, mypy, black y pytest con cobertura, y
+envía cobertura a Codecov. mypy y black no bloquean por sus `|| true`.
+No implementa los pasos de seguridad o umbral de cobertura antes descritos.
 
 ```bash
 # Simular CI localmente
@@ -373,7 +372,7 @@ make test-coverage
 Antes de publicar a producción:
 
 ```
-[ ] Todas las pruebas CI pasando
+[ ] Pruebas de la versión pasando localmente (CI opcional)
 [ ] Cobertura >= 80%
 [ ] Seguridad: No findings críticos/altos abiertos
 [ ] Documentación: README, ADRs, AVANCE.md actualizados

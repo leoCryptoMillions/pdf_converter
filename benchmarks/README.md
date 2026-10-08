@@ -19,7 +19,7 @@ P02  Ejecutar benchmarks (make benchmark)
      Reporte comparativo (benchmarks/results/)
           │
           ▼
-P03-P05  Revisar viabilidad XLSX/DOCX → Gate F0 (Go/No-Go)
+F0   Prototipos XLSX/DOCX + revisión de calidad/licencias/costo → Gate F0
 ```
 
 ## 1. Preparar el corpus (P01)
@@ -32,8 +32,10 @@ herramienta y los metadatos.
    (ruta ignorada por git).
 2. Registra cada archivo en `benchmarks/corpus_manifest.csv` — una fila por
    PDF, ver columnas abajo.
-3. Crea el ground truth de cada PDF en
-   `benchmarks/ground_truth/<file_id>.json` (ver plantilla en esa carpeta).
+3. Crea las referencias de PDFs reales en
+   `benchmarks/ground_truth/local/<file_id>.json` (excluido de Git).
+   Solo las referencias sintéticas redistribuibles se guardan directamente
+   en `benchmarks/ground_truth/`. Ver la plantilla de esa carpeta.
 
 ### Categorías requeridas (mínimo 10 cada una)
 
@@ -63,6 +65,24 @@ herramienta y los metadatos.
 | `notes`        | Observaciones (idioma, orientación, particularidades)       |
 
 ## 2. Ejecutar los benchmarks (P02)
+
+Para la muestra anotada y los prototipos nuevos:
+
+```bash
+python -m benchmarks.prepare_review
+python -m benchmarks.validate_prototype
+```
+
+El primer comando genera `benchmarks/review/corpus_split.csv` y tareas
+de anotación o ampliación en `annotation_tasks.json`, sin inventar referencias.
+Los PDFs idénticos por SHA256 reciben el mismo conjunto. La separación es
+provisional: aún hay que agrupar por origen/plantilla y revisar el balance.
+El segundo valida XLSX, dos rutas DOCX y OCR por página o región, con salidas en
+`.generated/f0/` y métricas en `.generated/f0/report.json`.
+No decide el Gate F0. Las referencias regionales no miden páginas completas.
+Las referencias `selected_pages_tables` y `selected_pages_text` miden solo
+las páginas anotadas, no el documento completo. El benchmark OCR general
+no puntúa esas referencias parciales; usa `validate_prototype` para ello.
 
 ```bash
 # Benchmark completo (tablas + OCR), guarda resultados en benchmarks/results/
@@ -99,7 +119,33 @@ Si algún motor no alcanza el umbral en su categoría, se documenta la brecha
 y se decide: (a) cambiar de motor, (b) acotar el alcance de esa categoría,
 o (c) marcarla como "requiere revisión manual" desde el MVP.
 
+**Limitación de métricas:** `table_f1` mide coincidencia exacta de filas por
+tabla, contando duplicados. No mide geometría, spans ni orden de filas;
+por tanto no sustituye los dos F1 de detección y estructura del gate.
+CER usa distancia Levenshtein exacta. El informe de prototipos normaliza
+solo espacios del texto y reporta el alcance de cada referencia.
+P03/P04/P05 del plan son IR/API, aislamiento y permisos/storage; no son
+identificadores para las pruebas de viabilidad de Excel y Word.
+
 ## 4. Registrar resultados
+
+### Experimentos locales adicionales
+
+```powershell
+python -m benchmarks.validate_continuity
+python -m benchmarks.ocr_experiments
+python -m benchmarks.resource_benchmark
+python -m benchmarks.dependency_inventory
+```
+
+Continuidad valida celdas anotadas de la frontera y conservación XLSX; no
+une transacciones. OCR compara siete configuraciones en dos páginas de
+desarrollo, sin promover el mejor resultado a configuración de producción.
+Recursos usa tres procesos nuevos por ruta y requiere psutil de
+`requirements-benchmark.txt`, además del entorno PDFium/Tesseract existente.
+Inventario copia avisos y revisa requisitos activos de paquetes instalados;
+no certifica cumplimiento ni examina todos los binarios nativos.
+Resultados y límites: [prototipo F0](../docs/PROTOTIPO_F0.md).
 
 Después de correr los benchmarks, actualiza:
 - `docs/AVANCE.md` — sección "Métricas Medidas" y "Bloqueadores Actuales".

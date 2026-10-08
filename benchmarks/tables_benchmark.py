@@ -15,7 +15,13 @@ from __future__ import annotations
 
 import time
 
-from common import (
+import sys
+from pathlib import Path
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from benchmarks.common import (
     EngineResult,
     load_ground_truth,
     load_manifest,
@@ -28,28 +34,32 @@ from common import (
 TABLE_CATEGORIES = {"digital_simple_table", "digital_complex_table"}
 
 
-def extract_with_pdfplumber(pdf_path) -> list[list[list[str]]]:
+def extract_with_pdfplumber(pdf_path, page_numbers=None) -> list[list[list[str]]]:
     import pdfplumber
 
     tables: list[list[list[str]]] = []
     with pdfplumber.open(str(pdf_path)) as pdf:
-        for page in pdf.pages:
+        selected = page_numbers or list(range(1, len(pdf.pages) + 1))
+        for number in sorted(selected):
+            page = pdf.pages[number - 1]
             tables.extend(page.extract_tables())
     return tables
 
 
-def extract_with_camelot(pdf_path) -> list[list[list[str]]]:
+def extract_with_camelot(pdf_path, page_numbers=None) -> list[list[list[str]]]:
     import camelot
 
-    result = camelot.read_pdf(str(pdf_path), pages="all")
+    result = camelot.read_pdf(str(pdf_path), pages=",".join(map(str, sorted(page_numbers))) if page_numbers else "all")
     return [t.df.values.tolist() for t in result]
 
 
-def extract_with_docling(pdf_path) -> list[list[list[str]]]:
+def extract_with_docling(pdf_path, page_numbers=None) -> list[list[list[str]]]:
     # Docling's public API has changed across versions; this adapter is the
     # single place to update when pinning docling==1.1.0's actual interface.
     # Kept isolated so P02 can run partial results (pdfplumber/Camelot) even
     # if this adapter needs adjustment once run against real documents.
+    if page_numbers:
+        raise NotImplementedError("Docling adapter does not support selected-page references")
     from docling.document_converter import DocumentConverter
 
     converter = DocumentConverter()
@@ -86,7 +96,8 @@ def run() -> tuple[list[EngineResult], list[str]]:
         for engine_name, extract_fn in ENGINES.items():
             start = time.monotonic()
             try:
-                actual_tables = extract_fn(row.pdf_path)
+                selected = [p["page_number"] for p in ground_truth["pages"]] if ground_truth and ground_truth.get("scope") == "selected_pages_tables" else None
+                actual_tables = extract_fn(row.pdf_path, page_numbers=selected)
             except ImportError as exc:
                 results.append(
                     EngineResult(
@@ -97,6 +108,11 @@ def run() -> tuple[list[EngineResult], list[str]]:
                         skipped_reason=f"dependency not installed: {exc}",
                     )
                 )
+                continue
+            except NotImplementedError as exc:
+                results.append(EngineResult(engine=engine_name, file_id=row.file_id,
+                    category=row.category, duration_s=time.monotonic() - start,
+                    skipped_reason=str(exc)))
                 continue
             except Exception as exc:  # noqa: BLE001 - benchmark must keep going per engine
                 results.append(
@@ -112,6 +128,9 @@ def run() -> tuple[list[EngineResult], list[str]]:
 
             duration = time.monotonic() - start
             metrics = table_f1(expected_tables, actual_tables) if expected_tables else {}
+            if ground_truth:
+                metrics["reference_scope"] = ground_truth.get("scope", "legacy_tables")
+                metrics["annotated_pages"] = [p["page_number"] for p in ground_truth["pages"]]
             if not expected_tables:
                 metrics["note"] = "no ground truth - timing only, no F1 computed"
             results.append(
