@@ -1,7 +1,7 @@
 # Progreso del Proyecto - PDF Converter
 
 Versión del Plan: 1.0.0  
-Fecha de Actualización: 2026-10-08
+Fecha de Actualización: 2026-10-09
 Estado Actual: **F0 EN PROGRESO — prototipo CLI y muestra validada; gate pendiente**
 
 ## Estado Resumen
@@ -9,11 +9,11 @@ Estado Actual: **F0 EN PROGRESO — prototipo CLI y muestra validada; gate pendi
 ```yaml
 proyecto: conversion-pdf
 plan_version: 1.0.0
-actualizado: 2026-10-08
+actualizado: 2026-10-09
 fase_actual: F0 - Viabilidad
 fase_detalle: P01/P02 - 37 PDFs, referencias parciales y prototipo F0 medido
 estado: en_progreso
-ultimo_commit: pendiente
+ultimo_commit: 712df98 (pusheado a origin/master)
 completado:
   - Lectura de plan
   - Selección de framework
@@ -479,6 +479,14 @@ Retomar ampliando referencias completas y verificando reconstrucción de filas
 partidas. Después medir carga y revisar binarios/modelos, dependencias del
 stack completo y tarifas. No aprobar F0 ni iniciar el flujo web con la muestra
 actual. Los detalles reproducibles están en `PROTOTIPO_F0.md` y `LICENCIAS.md`.
+
+## Sincronización con GitHub — 2026-10-09
+
+El commit `712df98` ("Guardar prototipo F0, validaciones y desactivar Actions")
+se subió a `origin/master` (`leoCryptoMillions/pdf_converter`). No hubo trabajo
+adicional en esta sesión: el árbol de trabajo está limpio y el estado del
+prototipo, corpus y bloqueadores es el mismo descrito en las secciones
+anteriores (validación 2026-10-08).
 
 ## Calendario anterior (referencia histórica)
 
