@@ -1615,6 +1615,7 @@ python -m cProfile -s cumulative -m pytest tests/unit/test_converters.py
 | [docs/SEGURIDAD.md](./docs/SEGURIDAD.md) | Security model, OWASP compliance, threat model |
 | [docs/CALIDAD.md](./docs/CALIDAD.md) | Quality gates, metrics, test coverage targets |
 | [docs/adr/](./docs/adr/) | Architecture decisions (motor choice, outbox pattern, etc.) |
+| [docs/mantenimiento-dashboard.md](./docs/mantenimiento-dashboard.md) | **Mandatory**: update rule for [prototipos/preparacion-brechas/index.html](./prototipos/preparacion-brechas/index.html), the readiness/gaps dashboard — read before closing any task or committing product changes |
 
 ---
 
@@ -1637,6 +1638,7 @@ python -m cProfile -s cumulative -m pytest tests/unit/test_converters.py
 - **Preserve constraints**: No LLM in base flow; no automatic corrections; always flag uncertainty and preserve original
 - **Security first**: Isolation, timeouts, type checking, tested error paths before features
 - **Document decisions**: Create ADR for significant choices; link from code comments
+- **Update the gaps dashboard**: before closing any task/backlog item, and before any commit that changes product code or docs relevant to one of its 11 areas, follow [docs/mantenimiento-dashboard.md](./docs/mantenimiento-dashboard.md) and update [prototipos/preparacion-brechas/index.html](./prototipos/preparacion-brechas/index.html) (+ its `fuentes.json`/`seguimiento.md`)
 
 ---
 

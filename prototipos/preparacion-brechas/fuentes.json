@@ -1,0 +1,24 @@
+{
+  "project": {"id": "pdf-converter", "name": "PDF Converter"},
+  "reviewed_at": "2026-10-20",
+  "guide_version": "3.0.1",
+  "schema_version": 2,
+  "source_revision": {
+    "head": "19eb900",
+    "working_tree": "clean",
+    "note": "Rama master al día con origin/master; sin cambios sin commit en el momento de esta revisión."
+  },
+  "sources": [
+    {"id": "SRC-01", "path": "docs/AVANCE.md", "section": "Estado Resumen / todas las secciones citadas", "status": "reconciled", "revisado_el": "2026-10-20", "vigencia_max_dias": 30, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Fuente principal de esta revisión; leída completa en esta sesión."},
+    {"id": "SRC-02", "path": "docs/PROTOTIPO_F0.md", "section": "Uso, métricas y límites del prototipo", "status": "pending_reconciliation", "revisado_el": null, "vigencia_max_dias": 30, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Referenciado desde AVANCE.md; no releído línea por línea en esta sesión."},
+    {"id": "SRC-03", "path": "benchmarks/corpus_manifest.csv", "section": "Conteo por categoría", "status": "pending_reconciliation", "revisado_el": "2026-10-20", "vigencia_max_dias": 30, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Verificado el 2026-10-20 solo en el total: 37 filas del manifest = 37 archivos reales en benchmarks/corpus/files/, sin huérfanos. El desglose por categoría sigue tomado de la tabla de AVANCE.md, no recalculado fila por fila contra el CSV."},
+    {"id": "SRC-04", "path": "docs/adr/0004-f0-local-prototype.md", "section": "Decisión de alcance F0", "status": "pending_reconciliation", "revisado_el": null, "vigencia_max_dias": 60, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Referenciado desde AVANCE.md; no releído directamente en esta sesión."},
+    {"id": "SRC-05", "path": "apps/api/main.py", "section": "Completo (160 líneas)", "status": "reconciled", "revisado_el": "2026-10-20", "vigencia_max_dias": 30, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Primeras ~30 líneas leídas directamente; conteo de líneas verificado con wc -l."},
+    {"id": "SRC-06", "path": "apps/worker/tasks.py", "section": "Completo (242 líneas)", "status": "pending_reconciliation", "revisado_el": null, "vigencia_max_dias": 30, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Solo conteo de líneas verificado; contenido no releído en esta sesión."},
+    {"id": "SRC-07", "path": "docs/LICENCIAS.md", "section": "Completo", "status": "pending_reconciliation", "revisado_el": null, "vigencia_max_dias": 30, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "No abierto en esta sesión; mencionado en AVANCE.md (inventario de 33 componentes / 61 avisos)."},
+    {"id": "SRC-08", "path": "CLAUDE.md", "section": "Completo", "status": "reconciled", "revisado_el": "2026-10-20", "vigencia_max_dias": 60, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Leído completo como instrucciones del repositorio para esta sesión."}
+  ],
+  "pending_automation": {
+    "note": "verificar-fuentes.mjs, verificar-evidencia.mjs, hash normalizado y vigencia por dos disparadores (§3.16 de la guía de referencia) no están implementados todavía. Decisión registrada en seguimiento.md: diferido a una siguiente sesión, no omitido en silencio."
+  }
+}
