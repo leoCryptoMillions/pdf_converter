@@ -709,7 +709,7 @@ const navItems = [
 const viewMeta = {
   overview:{eyebrow:"Resumen", title:"Preparación y brechas — fase F0", desc:"Diagnóstico documental de 11 áreas de la fase F0 (viabilidad), con tres dimensiones separadas: implementación, verificación y decisión."},
   profile:{eyebrow:"Primera operación", title:"Preguntas sobre el siguiente objetivo real", desc:"Preguntas abiertas sobre qué falta para decidir el Gate F0 y resolver el hallazgo de datos personales. Cada tarjeta enlaza a su ficha de área."},
-  devices:{eyebrow:"Flujos y canales", title:"Flujos y procesos del producto (sin pantalla propia)", desc:"PDF Converter aún no tiene interfaz de usuario; esta vista cubre el CLI, los pipelines de benchmark y los procesos planeados (API, worker, OCR)."},
+  devices:{eyebrow:"Flujos y canales", title:"Flujos y procesos del producto", desc:"El CLI dispone de un wrapper web local de un usuario. Esta vista cubre los pipelines y los procesos de API y worker previstos para F1; el wrapper no acredita avance de F1."},
   evidence:{eyebrow:"Fuentes y discrepancias", title:"Fuentes de la revisión y discrepancias documentales", desc:"Una entrada por área con su fuente real, más discrepancias detectadas entre documentos y código al momento de esta revisión."},
   decisions:{eyebrow:"Decisiones", title:"Decisiones agrupadas por familia", desc:"Filtrar o leer estas entradas no decide ni implementa nada; requieren revisión y autorización humana (§4 de la guía de referencia)."}
 };
@@ -932,7 +932,7 @@ function renderProfile(){
 
 function renderDevices(){
   const sec = document.getElementById("view-devices");
-  sec.innerHTML = `<p style="color:var(--text-2);margin-top:0">PDF Converter todavía no expone una interfaz de usuario. Esta vista cubre procesos y flujos sin pantalla propia (CLI, pipelines, API y worker planeados), siguiendo §1.1 de la guía de referencia.</p>
+  sec.innerHTML = `<p style="color:var(--text-2);margin-top:0">El CLI dispone de un wrapper web local con formulario, resultados y tema claro/oscuro (apps/local_review_ui.py). Esta vista cubre los pipelines y los flujos de API y worker previstos para F1. El wrapper de un usuario no acredita esos flujos ni cambia sus estados.</p>
   <div class="grid-cards flow-grid">${flows.map(f=>`
     <div class="card flow-card">
       <div class="flow-icon">${icon(f.icon,18)}</div>

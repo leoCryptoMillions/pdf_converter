@@ -576,6 +576,91 @@ preexistentes de la suite relacionados con DOCX, ya resueltos).
 
 Pendiente, no bloqueante: sin borrado/TTL de `.generated/web_ui/`.
 
+## UX del wrapper y prácticas adaptadas de conta01 — 2026-10-23
+
+Por petición directa del usuario se mejoró el wrapper existente con carga
+por arrastre, formatos visuales, resumen de opciones, progreso y resultados
+con descargas, vista del texto y notas de revisión. Los errores conservan
+formatos, páginas y OCR. Se corrigió el caso de desmarcar todos los formatos:
+ahora se exige una selección explícita, también en el servidor.
+
+Se añadió el botón claro/oscuro a la cabecera compartida. La elección se
+aplica antes del CSS, persiste entre páginas y recargas, prevalece sobre el
+tema del sistema y sincroniza otras pestañas. Con almacenamiento bloqueado
+el botón conserva su función durante la página; sin JavaScript se usa la
+preferencia del sistema. Todos los colores de superficies, controles,
+errores y advertencias están centralizados por tema.
+
+La revisión dirigida, de solo lectura, de `conta01` abarcó el tema y layout,
+variables CSS, almacenamiento opcional, errores recuperables, diálogo
+nativo, cabeceras/CSP y prácticas de cobertura y continuidad documental.
+Las adaptaciones concretas y las que se reservan para F1 constan en
+`docs/PROTOTIPO_F0.md`, sección «Prácticas revisadas en conta01».
+El wrapper añade cabeceras `nosniff`, bloqueo de marcos, `no-referrer` y CSP
+con recursos/formularios del mismo origen, sin scripts ni estilos inline.
+
+Evidencia focalizada: 18 pruebas HTTP pasan. El recorrido real en Chromium,
+versionado en `tests/e2e/local_review_ui.cjs`, verifica ambos temas,
+persistencia, sistema, pestañas, almacenamiento bloqueado, teclado,
+contraste de pares de texto, geometría de 375–1440 px, carga, conversión,
+descarga y errores, además del formulario sin JavaScript. Las capturas y
+mediciones están en `.generated/ui-check/`. Se verifica un botón de al menos
+44 × 44 px con 10 px de separación móvil y 18 px en escritorio.
+La evidencia no acredita la suite completa ni aceptación operativa de F1.
+
+Sin impacto en las brechas de F0-06/F0-10: sigue siendo una herramienta
+local de conveniencia. Se corrige el texto de Flujos del dashboard que aún
+afirmaba que no existía ninguna interfaz; no cambian estados ni decisiones.
+
+## Centro de ayuda, FAQ y mascota — 2026-10-23
+
+A pedido directo del usuario se añadió el menú Ayuda, disponible en todas
+las pantallas del wrapper. `/ayuda` contiene 13 preguntas frecuentes
+buscables sin distinguir acentos o mayúsculas, una guía de cuatro pasos y
+las explicaciones de las acciones. La búsqueda tiene alternativa GET sin
+JavaScript. Los 20 temas viven en `apps/local_review_assets/help.json` y se
+renderizan desde `apps/local_review_help.py`, evitando versiones distintas
+de la misma explicación en las FAQ y los botones `?`.
+
+Las acciones visibles de conversión, quitar archivo, tema, descargas,
+nueva conversión y búsqueda tienen ayuda adyacente. También se explican
+archivo, formatos, páginas, OCR y revisión. Un diálogo nativo muestra la
+explicación sin ejecutar la acción y devuelve el foco al cerrar con Escape
+o Cerrar. Los enlaces llevan a `/ayuda` cuando no hay JavaScript.
+
+La mascota de Nexia se adaptó mediante la herramienta integrada de edición
+de imágenes, conservando el personaje y sustituyendo el texto del pecho por
+«PDF Converter». Recurso local: `pdf-converter-guide.png`, 1254 × 1254 RGBA
+con transparencia real. Se utiliza en el centro de ayuda y los diálogos.
+El prompt, la referencia y la ubicación están en `docs/PROTOTIPO_F0.md`.
+No se modificó el repositorio conta01.
+
+Verificación focalizada: 21 pruebas HTTP pasan. Recorrido Chromium de FAQ,
+búsqueda, ayuda contextual, conservación del archivo y foco, imágenes,
+ambos temas, móvil, conversión, descargas y alternativa sin JavaScript.
+Capturas en `.generated/ui-check/help-*.png`, junto al informe del recorrido.
+Sin impacto en las brechas de F0-06/F0-10; esta es una mejora de la
+herramienta local, no una implementación de F1.
+
+## Estado guardado para continuar — 2026-10-23
+
+Por petición del usuario («listo, guarda todo»), quedan guardados el
+rediseño del wrapper, los temas, la ayuda, las FAQ, los `?` contextuales,
+la mascota, las pruebas y la documentación de esta sesión. Se prepara un
+commit local de estos cambios. La configuración personal de herramientas y
+la evidencia generada permanecen locales, fuera del control de versiones.
+
+Última validación del wrapper: 21 pruebas HTTP y recorrido Chromium con
+conversión, descargas, ayuda, foco, temas y vistas móviles. Las capturas y el
+informe están en `.generated/ui-check/`. Para retomar la vista usada en la
+sesión: `python -m uvicorn apps.local_review_ui:app --host 127.0.0.1 --port 8421`;
+abrir `http://127.0.0.1:8421/` o `/ayuda`. El arranque habitual con
+`python -m apps.local_review_ui` usa el puerto 8420.
+
+El siguiente trabajo de producto debe elegirse de los pendientes reales de
+F0; esta mejora de conveniencia no resuelve el Gate F0 ni adelanta F1.
+Siguen pendientes el borrado/TTL local y las brechas descritas en el dashboard.
+
 ## Calendario anterior (referencia histórica)
 
 **Fecha Planeada:** 2026-10-14 (después de completar P01)  

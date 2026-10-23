@@ -35,6 +35,38 @@ que no existe). Las otras 9 áreas siguen "por revisar".
 una herramienta de conveniencia nueva, no una verificación ni decisión sobre
 ninguna de las 11 áreas existentes.
 
+## UX local, temas y revisión de conta01 (2026-10-23)
+
+Autorización: pedidos directos del usuario en esta conversación («mejora el
+UX/UI» y «agrega un botón de modo claro/obscuro y revisa … conta01 … las
+mejores prácticas … para replicar»). La revisión de conta01 fue de lectura;
+no se cambió ese repositorio.
+
+| Fecha | Tarea/avance | Áreas | Actualización o motivo de no impacto | Fuentes/evidencia | Verificaciones | Decisión pendiente |
+|---|---|---|---|---|---|---|
+| 2026-10-23 | Rediseño del wrapper, temas y adopción de prácticas de conta01 | F0-06 / F0-10, nota de alcance local | Sin impacto en las brechas: no se modifican estados ni decisiones de F1. Se corrigen los dos textos de Flujos que aún negaban la existencia de interfaz. Se adaptan variables semánticas, preferencia antes del CSS, almacenamiento tolerante a fallos, revisión por superficies, cabeceras/CSP y documentación con evidencia. | `apps/local_review_ui.py`, `apps/local_review_assets/`, `tests/unit/test_local_review_ui.py`, `tests/e2e/local_review_ui.cjs`, `docs/PROTOTIPO_F0.md`, `docs/AVANCE.md`; fuentes SRC-10 a SRC-13. Capturas y mediciones en `.generated/ui-check/`. | 18 pruebas HTTP pasan. Chromium: ambos temas, sistema, persistencia, pestañas, teclado, contraste de pares de texto >=4.5:1, botón >=44×44 px y separaciones de 10/18 px, responsive 375–1440 px, subida/conversión/descarga reales, errores y alternativa sin JavaScript. Dashboard abierto y vista Flujos revisada sin errores de consola. | Ninguna para este cambio. Borrado/TTL sigue pendiente. Cuentas, permisos y preferencias por usuario se reservan para F1. |
+
+Indicadores leídos del dashboard: `verification_coverage` **18% (2/11)** y
+`decision_coverage` **27% (3/11)**, sin cambios. Se preserva el snapshot
+global de la revisión anterior; esta entrada solo acredita las fuentes y
+las verificaciones locales descritas. La matriz de prácticas adaptadas y
+deferidas está en `docs/PROTOTIPO_F0.md`.
+
+## Ayuda, FAQ y mascota PDF Converter (2026-10-23)
+
+Pedido directo del usuario: «menú ayuda, FAQ … la misma mascota que Nexia,
+pero ahora ponle PDF Converter … cada botón tenga su botón de ? … procede
+directo». Se amplía el wrapper local dentro del alcance ya autorizado.
+
+| Fecha | Tarea/avance | Áreas | Actualización o motivo de no impacto | Fuentes/evidencia | Verificaciones | Decisión pendiente |
+|---|---|---|---|---|---|---|
+| 2026-10-23 | Menú Ayuda, FAQ, guía y ayuda contextual con mascota | F0-06 / F0-10, conveniencia local | Sin impacto en las brechas: no se modifican estados, decisiones ni alcance de F1. Se añade `/ayuda`, 13 FAQ buscables y 20 temas compartidos con los `?` de las acciones. Mascota 3D editada con «PDF Converter» y transparencia, integrada en ayuda y diálogos. | `apps/local_review_help.py`, `apps/local_review_assets/help.json`, `help.js`, `help.css`, `shell.html`, `pdf-converter-guide.png`; `docs/PROTOTIPO_F0.md` (incluye referencia y prompt); pruebas HTTP y de navegador. | 21 pruebas HTTP pasan. Chromium: menú/FAQ, búsqueda sin acentos, estado sin resultados, ayuda sin perder archivo ni foco, imágenes cargadas, temas, móvil, conversión/descargas reales y alternativa sin JavaScript. Evidencia `.generated/ui-check/`. | Ninguna para este ajuste. Se mantienen los pendientes de F1 y borrado/TTL. |
+
+Se conservan `verification_coverage` **18% (2/11)** y
+`decision_coverage` **27% (3/11)**. No se renuevan snapshots globales ni
+hashes de fuentes ajenas a este cambio. Las mejoras de ayuda no acreditan
+verificación ni aceptación operativa de las 11 áreas de F0.
+
 ## Adopción de la guía v3.1.0 (2026-10-21): look and feel + línea de tiempo de hitos
 
 Se leyó `docs/DASHBOARD_PREPARACION_BRECHAS_IA.md` v3.1.0 completa en las dos
@@ -170,6 +202,17 @@ Resumen rápido (detalle completo en el dashboard):
 | RSK-03 | Riesgo | medium | tecnico | Portada resuelta por criterio (DEC-04); scanned_difficult en general sigue abierto |
 | RSK-04 | Riesgo | high | tecnico | Benchmark de recursos con límites |
 | RSK-05 | Riesgo | blocker | datos_personales | Confirmar `.gitignore` efectivo y borrar lo innecesario (revisar 2026-11-20) |
+
+## Guardado de la sesión (2026-10-23)
+
+Pedido del usuario: «listo, guarda todo». Código, mascota, pruebas y
+documentación del wrapper preparados para commit local. La configuración
+personal `.claude/settings.local.json` y los artefactos de `.generated/`
+se conservan en disco y se excluyen de Git. Punto de continuidad registrado
+en `docs/AVANCE.md`. Sin impacto adicional en las brechas: se conservan
+`verification_coverage` 18% (2/11) y `decision_coverage` 27% (3/11).
+La evidencia vigente para este cierre es la corrida de 21 pruebas HTTP y
+el recorrido Chromium ya registrado; este guardado no acredita pruebas nuevas.
 
 ## Próxima actualización esperada
 

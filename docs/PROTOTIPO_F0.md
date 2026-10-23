@@ -38,9 +38,118 @@ python -m apps.local_review_ui
 ```
 
 Sube un PDF, elige formato(s) y si quieres `--ocr`, y descarga el resultado.
+La interfaz incluye carga por arrastre, selección de varios formatos, resumen
+de opciones y un indicador mientras se convierte. Los errores conservan
+formatos, páginas y OCR; el archivo debe seleccionarse de nuevo. La pantalla
+de resultados muestra descargas, páginas y tablas detectadas, notas de revisión
+y una vista de los primeros 6 000 caracteres del texto extraído. El formulario
+y las descargas funcionan también sin JavaScript. Los recursos visuales están
+en `apps/local_review_assets/`, sin dependencias web ni fuentes externas.
+
+El botón de la cabecera alterna entre modo claro y oscuro en el formulario,
+los resultados y los errores. Respeta el tema del sistema hasta que eliges
+uno; guarda la elección en `localStorage` (`pdf-converter:theme`), la aplica
+antes de cargar los estilos y sincroniza otras pestañas del mismo origen.
+Si el navegador bloquea el almacenamiento, el botón funciona durante esa
+página; al navegar se vuelve al tema del sistema. Sin JavaScript, los estilos
+siguen el sistema y el botón se oculta.
+
 Los artefactos quedan en `.generated/web_ui/<id>/`, sin borrado automático
 (igual que el resto de `.generated/`). Pruebas reales (sin mocks, sube un
 PDF y descarga el resultado) en `tests/unit/test_local_review_ui.py`.
+
+#### Ayuda, FAQ y mascota PDF Converter
+
+El menú **Ayuda** de la cabecera abre el [centro de ayuda local](http://127.0.0.1:8421/ayuda),
+las preguntas frecuentes y la guía de uso. La página `/ayuda` incluye 13 FAQ
+agrupadas por tema y una guía de cuatro pasos. La búsqueda revisa preguntas
+y respuestas sin distinguir acentos ni mayúsculas, abre las coincidencias y
+ofrece limpiar la consulta. Funciona también por GET sin JavaScript.
+
+Las acciones de convertir, quitar archivo, cambiar tema, descargar archivos,
+empezar otra conversión y buscar/limpiar tienen un `?` adyacente. También hay
+explicaciones para archivo, formatos, páginas, OCR y revisión. Con JavaScript
+se abren en un diálogo nativo sin ejecutar la acción ni perder el archivo;
+Escape o Cerrar devuelven el foco al enlace que lo abrió. Sin JavaScript,
+los `?` enlazan a su explicación en `/ayuda`. La propia ayuda y su cierre no
+generan controles de ayuda recursivos.
+
+`apps/local_review_assets/help.json` contiene los 20 temas compartidos entre
+FAQ y explicaciones; `apps/local_review_help.py` los renderiza, y `help.js`
+mejora el diálogo y la búsqueda. No se envían consultas a servicios externos.
+La mascota aparece en el centro de ayuda y las explicaciones; su animación
+respeta la preferencia de movimiento reducido.
+
+**Recurso generado:** `apps/local_review_assets/pdf-converter-guide.png`,
+PNG RGBA de 1254 × 1254, con transparencia real verificada. Se utilizó la
+herramienta integrada de generación de imágenes, con
+`conta01/public/imagenes/nexia-guia-ayuda.png` como referencia de edición.
+El original de Nexia no se modificó. Prompt final utilizado:
+
+```text
+Use case: text-localization. Edit target: the attached transparent PNG of the Nexia 3D robot mascot. Create the PDF Converter version of exactly this same mascot. Preserve the robot's identity, cream ceramic shell, dark navy visor, warm gold eyes and smiling expression, blue arms and headphones, translucent dome, four fingers per hand, right-hand pointing pose, framing, and soft studio lighting. Change ONLY the chest lettering: remove 'Nexia' and put the exact text 'PDF Converter', preferably neatly centered on two lines ('PDF' then 'Converter') in warm gold lettering. No other letters or logos anywhere. Render the complete character with ample safe margin on a genuinely transparent RGBA background, no checkerboard, no solid background, no additional props, no caption outside the character. High quality, sharp enough for a website help center.
+```
+
+Verificación: 21 pruebas HTTP y el recorrido de navegador versionado. Se
+comprueban FAQ, menú, ayuda sin pérdida del archivo, foco, mascota cargada,
+tema claro/oscuro, móvil y alternativa sin JavaScript, además de convertir y
+descargar archivos reales. Evidencia en `.generated/ui-check/help-*.png` y
+`report.json`.
+
+#### Prácticas revisadas en conta01 y adaptación local (2026-10-23)
+
+Revisión dirigida de código y documentación en el repositorio vecino
+`conta01`; no se ejecutó ni modificó ese proyecto. Se adaptaron patrones al
+wrapper FastAPI/HTML existente, con implementación propia y sin incorporar
+React, Next.js ni la infraestructura de Nexia.
+
+| Práctica observada | Fuente revisada en conta01 | Aplicación en este proyecto |
+|---|---|---|
+| Colores semánticos, incluido texto sobre acento y colores de error por tema | `src/app/globals.css` | `style.css`: todas las superficies, avisos, controles y estados consumen variables; paletas clara y oscura. |
+| Preferencia antes del primer render, con elección manual prioritaria | `src/app/layout.tsx`, `src/app/dashboard/ThemeToggle.tsx` | `theme.js` se carga antes del CSS; preferencia validada, alternativa del sistema y botón en la cabecera compartida. |
+| Fallos de almacenamiento no bloquean la función principal | `ThemeToggle.tsx`, `src/lib/useFormDraft.ts` | Lecturas/escrituras protegidas; sin almacenamiento siguen funcionando el tema de la página y la conversión. |
+| Revisión por superficies y verificación del DOM | `.claude/skills/revisar-cobertura/SKILL.md`, `.claude/skills/revisar-ui/SKILL.md` | Prueba de formulario, resultados, errores, foco, separación del botón, móvil y ambos temas. No aplican las comprobaciones específicas de JSX. |
+| Cabeceras comunes y CSP restrictiva | `next.config.ts`, `src/lib/csp.ts` | Middleware del wrapper con `nosniff`, bloqueo de marcos, `no-referrer` y recursos/formularios del mismo origen. Scripts y estilos externos locales permiten evitar código inline y nonces. |
+| Documentación que distingue implementación de pendientes | `README.md`, `docs/CONTINUIDAD.md`, `docs/mantenimiento-dashboard.md` | Guía de uso, avance y seguimiento del dashboard actualizados con alcance y evidencia; F1 conserva sus estados. |
+
+Para etapas posteriores: la recuperación explícita de borradores de
+`useFormDraft.ts` será útil si aparecen formularios largos; el diálogo nativo
+y la restauración del foco de `src/components/Modal.tsx`, si se agrega una
+vista de revisión modal. Las preferencias por cuenta, permisos, sesiones y
+persistencia de Nexia corresponden al futuro flujo F1. El wrapper mantiene
+el límite de un usuario local y no guarda PDFs en el almacenamiento del
+navegador. Esta revisión dirigida no acredita la seguridad ni las pruebas
+completas de ninguno de los dos proyectos.
+
+#### Verificación de la interfaz
+
+Pruebas HTTP (incluyen conversión y descargas reales):
+
+```powershell
+python -m pytest tests/unit/test_local_review_ui.py -o addopts='--strict-markers --tb=short -q'
+```
+
+Prueba opcional de navegador versionada en `tests/e2e/local_review_ui.cjs`.
+Requiere Node.js y Playwright, únicamente para desarrollo:
+
+```powershell
+npm install --no-save --package-lock=false playwright
+npx playwright install chromium
+python -m uvicorn apps.local_review_ui:app --host 127.0.0.1 --port 8421
+# En otra terminal, desde la raíz del proyecto:
+node tests/e2e/local_review_ui.cjs
+```
+
+`PDF_UI_URL` permite cambiar la URL. Para reutilizar herramientas ya
+instaladas, `PDF_UI_PLAYWRIGHT_MODULE` acepta la ruta del módulo Playwright
+o Playwright Core y `PDF_UI_CHROMIUM_EXECUTABLE`, la ruta del navegador.
+La muestra requerida es `benchmarks/corpus/files/synthetic_base_invoice.pdf`
+(generada por `python -m benchmarks.generate_synthetic_adversarial`).
+El recorrido cubre ambos temas, preferencia del sistema, recarga, pestañas,
+almacenamiento bloqueado, teclado, contraste de pares de texto, anchos de
+375–1440 px, conversión y descarga reales, errores y uso sin JavaScript.
+Las capturas y mediciones quedan en `.generated/ui-check/`, ignorado por Git;
+no sustituyen pruebas con lectores de pantalla ni dispositivos físicos.
 
 XLSX crea una hoja por tabla, `_Original` con texto original por celda,
 `_Origin` con hash/motor/página/rectángulo y `_Warnings` con incidencias.

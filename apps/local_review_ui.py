@@ -14,67 +14,174 @@ Then open http://127.0.0.1:8420/
 from __future__ import annotations
 
 import html
+import re
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, UploadFile
+from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.status import HTTP_400_BAD_REQUEST
 
 from packages.converters.digital import PDFValidationError, extract_digital
+from apps.local_review_help import contextual_templates, help_link, render_help
 
 OUTPUT_ROOT = Path(".generated/web_ui")
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # Matches extract_digital's own default limit.
 ALLOWED_FORMATS = {"xlsx", "docx", "txt"}
+ASSET_ROOT = Path(__file__).with_name("local_review_assets")
+FORMAT_INFO = {
+    "xlsx": ("Excel", "Tablas y celdas"),
+    "docx": ("Word", "Texto y tablas"),
+    "txt": ("Texto", "Sin formato"),
+}
 
 app = FastAPI(title="PDF Converter - F0 local review UI", docs_url=None, redoc_url=None)
+app.mount("/assets", StaticFiles(directory=ASSET_ROOT), name="assets")
 
 
-PAGE_SHELL = """<!doctype html>
-<html lang="es"><head><meta charset="utf-8">
-<title>PDF Converter (F0 - local)</title>
-<style>
-body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }}
-h1 {{ font-size: 1.25rem; }}
-fieldset {{ border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin-bottom: 16px; }}
-label {{ display: block; margin: 8px 0 4px; }}
-.warn {{ background: #fff8e1; border: 1px solid #e0c200; border-radius: 8px; padding: 12px; margin-bottom: 16px; }}
-.error {{ background: #fdecea; border: 1px solid #e04040; border-radius: 8px; padding: 12px; margin-bottom: 16px; }}
-table {{ border-collapse: collapse; width: 100%; margin-top: 12px; }}
-td, th {{ border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 0.9rem; }}
-button {{ padding: 8px 16px; font-size: 1rem; cursor: pointer; }}
-a.download {{ display: inline-block; margin: 4px 8px 4px 0; }}
-</style></head><body>
-<h1>PDF Converter - revisión local (prototipo F0)</h1>
-<p class="warn">Prototipo F0: solo para uso local en tu máquina, un documento
-a la vez. No hay cuentas, ni cola, ni borrado automático de resultados
-(quedan en <code>.generated/web_ui/</code>). Toda conversión termina en
-<code>needs_review</code> a propósito.</p>
-{body}
-</body></html>"""
+@app.middleware("http")
+async def local_response_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "img-src 'self' data:; object-src 'none'; base-uri 'none'; "
+        "form-action 'self'; frame-ancestors 'none'"
+    )
+    return response
 
 
-def render_form(error: str | None = None) -> str:
-    error_html = f'<div class="error">{html.escape(error)}</div>' if error else ""
-    return PAGE_SHELL.format(body=f"""
+PAGE_SHELL = ((ASSET_ROOT / "shell.html").read_text(encoding="utf-8")
+              .replace("{help_templates}", contextual_templates())
+              .replace("{theme_help}", help_link("theme"))
+              .replace("{menu_help}", help_link("help")))
+
+
+def icon(name: str) -> str:
+    paths = {
+        "upload": '<path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4"/>',
+        "arrow": '<path d="M5 12h14m-6-6 6 6-6 6"/>',
+        "download": '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+        "shield": '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/>',
+        "warning": '<path d="m12 3 10 18H2Z"/><path d="M12 9v5m0 3v1"/>',
+        "close": '<path d="m6 6 12 12M6 18 18 6"/>',
+        "plus": '<path d="M12 5v14M5 12h14"/>',
+    }
+    return (f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            f'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" '
+            f'aria-hidden="true">{paths[name]}</svg>')
+
+
+LOCAL_NOTE = f"""
+<section class="note-card" aria-labelledby="local-title">
+  {icon('shield')}
+  <h2 id="local-title">Se queda en tu equipo</h2>
+  <p>La conversión se ejecuta en este servidor local, sin enviar tu PDF a un servicio externo.</p>
+  <details><summary>Sobre este prototipo</summary>
+    <p>Uso local, un documento a la vez. Los archivos se guardan en
+    <code>.generated/web_ui/</code> y no se borran automáticamente.</p>
+    <p>Los resultados requieren revisión frente al PDF original.</p>
+  </details>
+</section>"""
+
+
+def render_form(error: str | None = None, *, selected_formats: set[str] | None = None,
+                pages: str = "", ocr: bool = False) -> str:
+    selected = {"xlsx", "txt"} if selected_formats is None else selected_formats
+    error_html = (f'<div class="error-banner" role="alert" tabindex="-1">'
+                  f'<strong>No pudimos convertir el archivo</strong><p>{html.escape(error)}</p>'
+                  '<p>Vuelve a seleccionar tu PDF. Conservamos las opciones de conversión.</p></div>'
+                  if error else "")
+    format_options = "".join(
+        f'<label class="format-option"><input type="checkbox" name="formats" value="{ext}" '
+        f'aria-describedby="formats-error" {"checked" if ext in selected else ""}>'
+        f'<span class="format-tag">{ext.upper()}</span><strong>{info[0]}</strong>'
+        f'<span class="hint">{info[1]}</span></label>'
+        for ext, info in FORMAT_INFO.items()
+    )
+    format_summary = " + ".join(ext.upper() for ext in FORMAT_INFO if ext in selected)
+    body = f"""
+<div class="intro">
+  <p class="eyebrow">DE PDF A POSIBILIDADES</p>
+  <h1>Tus PDFs, listos para trabajar.</h1>
+  <p>Extrae tablas y texto en archivos editables. Elige tu PDF, define la salida y convierte.</p>
+</div>
 {error_html}
-<form action="/convert" method="post" enctype="multipart/form-data">
-  <fieldset>
-    <label for="file">Archivo PDF (máx. 25 MB)</label>
-    <input type="file" id="file" name="file" accept="application/pdf" required>
-
-    <label for="pages">Páginas (opcional, 1-indexado, separadas por coma; vacío = todas)</label>
-    <input type="text" id="pages" name="pages" placeholder="1,3">
-
-    <label><input type="checkbox" name="formats" value="xlsx" checked> XLSX</label>
-    <label><input type="checkbox" name="formats" value="docx"> DOCX</label>
-    <label><input type="checkbox" name="formats" value="txt" checked> TXT</label>
-
-    <label><input type="checkbox" name="ocr" value="1"> Ejecutar OCR en páginas sin texto (Tesseract; más lento)</label>
-  </fieldset>
-  <button type="submit">Convertir</button>
-</form>
-""")
+<div class="workspace">
+  <form id="convert-form" class="panel" action="/convert" method="post" enctype="multipart/form-data">
+    <section class="form-section" aria-labelledby="upload-title">
+      <div class="section-heading"><span class="step-number" aria-hidden="true">1</span>
+        <h2 id="upload-title">Sube tu documento</h2><span class="hint">Un PDF a la vez</span></div>
+      <label class="drop-zone" id="drop-zone" for="file">
+        <span class="upload-icon">{icon('upload')}</span>
+        <span class="drop-title">Arrastra tu PDF aquí</span>
+        <span class="hint">o <span class="browse-text">selecciona un archivo</span></span>
+        <span class="hint" id="file-hint">Hasta 25 MB · Máximo 100 páginas</span>
+      </label>
+        <input class="file-input" type="file" id="file" name="file" accept=".pdf,application/pdf"
+               aria-label="Seleccionar archivo PDF" aria-describedby="file-hint file-error" required>
+      <div class="selected-file" id="selected-file" hidden>
+        <span class="file-symbol" aria-hidden="true">PDF</span>
+        <div class="file-info" aria-live="polite"><strong class="file-name" id="file-name"></strong>
+          <span class="hint" id="file-size"></span></div>
+        <div class="action-with-help"><button type="button" class="icon-button" id="remove-file" data-help-action="remove" aria-label="Quitar archivo y elegir otro">{icon('close')}</button>{help_link('remove')}</div>
+      </div>
+      <p class="field-error" id="file-error" role="alert" hidden></p>
+      <div class="field-help">Sobre el archivo {help_link('upload')}</div>
+    </section>
+    <section class="form-section" aria-labelledby="formats-title">
+      <div class="section-heading"><span class="step-number" aria-hidden="true">2</span>
+        <h2 id="formats-title">Elige la salida</h2><span class="hint">Puedes elegir varios</span></div>
+      <div class="format-grid" id="formats-group" role="group" aria-labelledby="formats-title" aria-describedby="formats-error">
+        {format_options}
+      </div>
+      <p class="field-error" id="formats-error" role="alert" hidden></p>
+      <div class="field-help">Sobre los formatos {help_link('formats')}</div>
+    </section>
+    <section class="form-section" aria-labelledby="options-title">
+      <div class="section-heading"><span class="step-number" aria-hidden="true">3</span>
+        <h2 id="options-title">Ajusta los detalles</h2></div>
+      <div class="options-grid">
+        <div><div class="field-label-row"><label class="field-label" for="pages">Páginas <span class="optional">Opcional</span></label>{help_link('pages')}</div>
+          <input class="text-input" type="text" id="pages" name="pages" placeholder="Todas las páginas"
+                 value="{html.escape(pages, quote=True)}" aria-describedby="pages-hint pages-error" autocomplete="off">
+          <p class="hint field-hint" id="pages-hint">Déjalo vacío o escribe, por ejemplo: 1, 3, 5.</p>
+          <p class="field-error" id="pages-error" role="alert" hidden></p>
+        </div>
+        <label class="ocr-option" for="ocr"><input type="checkbox" id="ocr" name="ocr" value="1" {"checked" if ocr else ""}>
+          <span><strong>Reconocer texto escaneado</strong>
+            <span class="hint">Activa OCR para páginas sin texto seleccionable. Puede tardar más; requiere Tesseract y Poppler instalados.</span></span>
+        </label>
+        <div class="field-help ocr-help">Sobre OCR {help_link('ocr')}</div>
+      </div>
+    </section>
+    <div class="submit-area">
+      <div class="action-with-help submit-action"><button type="submit" class="primary-button" data-help-action="convert"><span id="submit-label">Convertir PDF</span>{icon('arrow')}</button>{help_link('convert')}</div>
+      <p class="submit-note">El PDF original se conserva junto con tus resultados.</p>
+      <div id="progress" class="progress" role="status" tabindex="-1" hidden>
+        <div class="progress-title"><span class="spinner" aria-hidden="true"></span>Estamos preparando tus archivos</div>
+        <p>Espera a que termine la conversión. Los documentos escaneados pueden tardar más.</p>
+      </div>
+    </div>
+  </form>
+  <aside class="sidebar" aria-label="Resumen y ayuda">
+    <section class="panel summary-card"><h2>Tu conversión</h2>
+      <dl class="summary-list">
+        <div><dt>Documento</dt><dd id="summary-file">Sin seleccionar</dd></div>
+        <div><dt>Salida</dt><dd id="summary-formats">{format_summary or 'Sin seleccionar'}</dd></div>
+        <div><dt>Páginas</dt><dd id="summary-pages">{'Selección personalizada' if pages.strip() else 'Todas'}</dd></div>
+        <div><dt>OCR</dt><dd id="summary-ocr">{'Activado' if ocr else 'Desactivado'}</dd></div>
+      </dl>
+    </section>
+    {LOCAL_NOTE}
+    <div class="sidebar-tip"><h3>Un mejor punto de partida</h3>
+      <p>Los PDFs con texto seleccionable ofrecen mejores resultados. Revisa tablas, cifras y saltos de línea antes de usar los archivos.</p></div>
+  </aside>
+</div>"""
+    return PAGE_SHELL.format(body=body, title="Convierte tu PDF")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -82,29 +189,43 @@ def index() -> str:
     return render_form()
 
 
+@app.get("/ayuda", response_class=HTMLResponse)
+def help_center(q: str = "") -> str:
+    return PAGE_SHELL.format(body=render_help(q), title="Ayuda y preguntas frecuentes")
+
+
 @app.post("/convert", response_class=HTMLResponse)
 async def convert(
     file: UploadFile,
-    formats: list[str] = Form(default=["xlsx"]),
+    formats: list[str] = Form(default=[]),
     pages: str = Form(default=""),
     ocr: str = Form(default=""),
 ) -> HTMLResponse:
     selected_formats = {f for f in formats if f in ALLOWED_FORMATS}
+
+    def failure(message: str) -> HTMLResponse:
+        return HTMLResponse(
+            render_form(message, selected_formats=selected_formats, pages=pages, ocr=bool(ocr)),
+            status_code=HTTP_400_BAD_REQUEST,
+        )
+
     if not selected_formats:
-        return HTMLResponse(render_form("Selecciona al menos un formato de salida."), status_code=HTTP_400_BAD_REQUEST)
+        return failure("Selecciona al menos un formato de salida.")
 
     page_numbers = None
     if pages.strip():
+        if not re.fullmatch(r"[1-9]\d*(?:\s*,\s*[1-9]\d*)*", pages.strip()):
+            return failure("Páginas inválidas: usa números separados por comas, por ejemplo: 1, 3, 5.")
         try:
-            page_numbers = [int(p.strip()) for p in pages.split(",") if p.strip()]
+            page_numbers = [int(p.strip()) for p in pages.split(",")]
         except ValueError:
-            return HTMLResponse(render_form("Páginas inválidas: usa números separados por coma, ej. 1,3."),
-                                 status_code=HTTP_400_BAD_REQUEST)
+            return failure("La selección de páginas es demasiado larga. Usa números entre 1 y 100.")
+        if len(page_numbers) != len(set(page_numbers)):
+            return failure("Hay páginas repetidas. Escribe cada número una sola vez.")
 
     body = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(body) > MAX_UPLOAD_BYTES:
-        return HTMLResponse(render_form(f"El archivo excede el límite de {MAX_UPLOAD_BYTES // (1024 * 1024)} MB."),
-                             status_code=HTTP_400_BAD_REQUEST)
+        return failure("El archivo excede el límite de 25 MB. Elige un PDF más pequeño.")
 
     job_id = uuid.uuid4().hex
     job_dir = OUTPUT_ROOT / job_id
@@ -116,37 +237,90 @@ async def convert(
     try:
         document = extract_digital(source_path, page_numbers=page_numbers, ocr=bool(ocr))
     except PDFValidationError as exc:
-        return HTMLResponse(render_form(f"Conversión falló: {exc}"), status_code=HTTP_400_BAD_REQUEST)
+        messages = {
+            "Invalid PDF signature": "El archivo no es un PDF válido. Selecciona otro documento.",
+            "Encrypted PDFs are unsupported": "El PDF está protegido. Usa una copia sin contraseña.",
+            "PDF exceeds page limit or has no pages": "El PDF debe tener entre 1 y 100 páginas.",
+            "Invalid selected pages": "Alguna página no existe en el PDF. Revisa los números e inténtalo de nuevo.",
+            "PDF could not be parsed": "No se pudo leer este PDF. Comprueba que abre correctamente o usa otra copia.",
+        }
+        return failure(f"Conversión falló: {messages.get(str(exc), str(exc))}")
 
     artifacts: dict[str, bytes] = {"document.ir.json": document.model_dump_json(indent=2).encode("utf-8")}
-    if "xlsx" in selected_formats:
-        from packages.exporters.xlsx import export_xlsx
-        artifacts["result.xlsx"] = export_xlsx(document)
-    if "docx" in selected_formats:
-        from packages.exporters.docx import export_docx
-        artifacts["result.docx"] = export_docx(document)
-    if "txt" in selected_formats:
-        artifacts["result.txt"] = document.get_all_text().encode("utf-8")
+    try:
+        if "xlsx" in selected_formats:
+            from packages.exporters.xlsx import export_xlsx
+            artifacts["result.xlsx"] = export_xlsx(document)
+        if "docx" in selected_formats:
+            from packages.exporters.docx import export_docx
+            artifacts["result.docx"] = export_docx(document)
+        if "txt" in selected_formats:
+            artifacts["result.txt"] = document.get_all_text().encode("utf-8")
+    except ValueError:
+        return failure("No se pudo exportar el contenido al formato elegido sin perder información. Prueba con TXT o con menos páginas.")
 
     for name, data in artifacts.items():
         (job_dir / name).write_bytes(data)
 
     warnings = document.warnings + [w for p in document.pages for w in p.warnings]
-    links = "".join(f'<a class="download" href="/download/{job_id}/{name}">{html.escape(name)}</a>'
-                     for name in artifacts if name != "document.ir.json")
-    links += f'<a class="download" href="/download/{job_id}/document.ir.json">document.ir.json</a>'
-    rows = "".join(f"<tr><td>{w.page_number}</td><td>{html.escape(w.code)}</td><td>{html.escape(w.message)}</td></tr>"
-                    for w in warnings)
+    friendly_warnings = {
+        "UNVALIDATED_EXTRACTION": "Compara los archivos con el PDF original: la calidad de extracción aún no se ha verificado.",
+        "OCR_REQUIRED": "Esta página no tiene texto extraíble. Vuelve a convertir con reconocimiento de texto (OCR) activado.",
+        "IMAGES_NOT_EXTRACTED": "Las imágenes de esta página no se incluyen en los archivos convertidos.",
+        "OCR_FAILED": "No se pudo reconocer el texto. Comprueba que Tesseract y Poppler están instalados.",
+    }
+    warning_items = "".join(
+        f'<li><span class="warning-page">Página {w.page_number}</span>'
+        f'<p>{html.escape(friendly_warnings.get(w.code, w.message))}</p>'
+        f'<details><summary>Detalle técnico</summary><div class="technical-detail">'
+        f'<code>{html.escape(w.code)}</code> · {html.escape(w.message)}</div></details></li>'
+        for w in warnings
+    )
+    downloads = "".join(
+        f'<div class="action-with-help download-row"><a class="download-card" href="/download/{job_id}/result.{ext}" aria-label="Descargar {info[0]}" data-help-action="{ext}" download>'
+        f'<span class="file-symbol" aria-hidden="true">{ext.upper()}</span>'
+        f'<span class="file-info"><strong>Descargar {info[0]}</strong>'
+        f'<span class="hint">.{ext} · {len(artifacts[f"result.{ext}"]) / 1024:.1f} KB</span></span>'
+        f'{icon("download")}</a>{help_link(ext)}</div>'
+        for ext, info in FORMAT_INFO.items() if ext in selected_formats
+    )
+    text = document.get_all_text()
+    preview = (f'<pre class="text-preview" tabindex="0" aria-label="Texto extraído">{html.escape(text[:6000])}</pre>'
+               if text.strip() else '<p class="hint">No se extrajo texto. Si el PDF es un escaneo, vuelve a convertir con OCR activado.</p>')
+    preview_note = '<p class="hint field-hint">Vista limitada a 6 000 caracteres. Consulta el texto completo en los archivos de salida.</p>' if len(text) > 6000 else ''
     body_html = f"""
-<div class="warn">Estado: <strong>needs_review</strong> &middot;
-{document.page_count} página(s) en el PDF, {len(document.pages)} procesada(s) &middot;
-{len(document.get_all_tables())} tabla(s) detectada(s)</div>
-<p>{links}</p>
-<h2>Advertencias ({len(warnings)})</h2>
-<table><tr><th>Página</th><th>Código</th><th>Mensaje</th></tr>{rows}</table>
-<p><a href="/">&larr; Convertir otro archivo</a></p>
+<div class="result-heading">
+  <div class="intro"><p class="eyebrow">CONVERSIÓN COMPLETADA</p>
+    <h1>Tu PDF, un paso más allá.</h1><p>{html.escape(file.filename or 'Documento PDF')}</p></div>
+  <div class="action-with-help"><a class="secondary-button" href="/" data-help-action="new">{icon('plus')}Convertir otro PDF</a>{help_link('new')}</div>
+</div>
+<div class="review-banner">{icon('warning')}<div><strong>Archivos generados. Revisión pendiente.</strong>
+  <p>Comprueba el contenido frente al PDF original antes de utilizarlo. Estado: <code>needs_review</code>.</p></div>{help_link('review')}</div>
+<div class="metrics" aria-label="Resumen del resultado">
+  <div class="panel metric"><strong>{len(document.pages)} <span>/ {document.page_count}</span></strong><span>Páginas procesadas</span></div>
+  <div class="panel metric"><strong>{len(document.get_all_tables())}</strong><span>Tablas detectadas</span></div>
+  <div class="panel metric"><strong>{len(selected_formats)}</strong><span>Archivos de salida</span></div>
+</div>
+<div class="workspace">
+  <div class="result-stack">
+    <section class="panel result-section"><h2>Descarga tus archivos</h2><p class="hint">Elige un formato para guardarlo en tu equipo.</p>
+      <div class="download-list">{downloads}</div></section>
+    <section class="panel result-section"><h2>Vista del texto extraído</h2><p class="hint">Una primera mirada al contenido, sin formato.</p>
+      {preview}{preview_note}</section>
+    <section class="panel result-section"><h2>Notas para tu revisión ({len(warnings)})</h2>
+      <ul class="warnings-list">{warning_items}</ul></section>
+  </div>
+  <aside class="sidebar" aria-label="Ayuda para revisar">
+    <section class="panel summary-card"><h2>Antes de continuar</h2>
+      <p class="hint">Revisa cifras, encabezados y celdas combinadas. La conversión no reconstruye el diseño exacto ni las imágenes del PDF.</p>
+      <details><summary>Datos de la extracción</summary><p class="hint">JSON con contenido, procedencia y advertencias para una revisión técnica.</p>
+        <div class="action-with-help"><a class="technical-download" href="/download/{job_id}/document.ir.json" data-help-action="json" download>Descargar document.ir.json</a>{help_link('json')}</div></details>
+    </section>
+    {LOCAL_NOTE}
+  </aside>
+</div>
 """
-    return HTMLResponse(PAGE_SHELL.format(body=body_html))
+    return HTMLResponse(PAGE_SHELL.format(body=body_html, title="Tus resultados"))
 
 
 @app.get("/download/{job_id}/{filename}")
