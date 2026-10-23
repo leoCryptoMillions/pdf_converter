@@ -22,12 +22,17 @@
   .skip{position:absolute;left:-999px;top:0;background:#fff;color:var(--text);padding:10px 14px;z-index:999;border-radius:6px}
   .skip:focus{left:10px;top:10px;box-shadow:0 0 0 3px var(--accent-2)}
   button{font-family:inherit;font-size:14px;cursor:pointer}
-  :focus-visible{outline:3px solid var(--accent-2);outline-offset:2px}
+  :focus-visible{outline:3px solid var(--accent-2);outline-offset:3px}
   .shell{display:flex;min-height:100vh}
-  #sidebar{width:228px;background:var(--sidebar);color:#dce8f5;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0;padding:20px 14px}
+  #sidebar{width:228px;background:var(--sidebar);color:#dce8f5;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0;padding:20px 14px;display:flex;flex-direction:column}
   .brand{padding:0 8px 18px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:14px}
   .brand strong{display:block;font-size:15px;color:#fff}
   .brand span{font-size:12px;color:#9fb3c8}
+  .phase-indicator{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.12);font-size:11.5px;color:#9fb3c8}
+  .phase-indicator .phase-text{color:#fff;font-weight:600;margin:4px 0 10px;font-size:13px;line-height:1.3}
+  .phase-segments{display:flex;gap:4px}
+  .phase-segments .seg{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.15)}
+  .phase-segments .seg.active{background:var(--accent-2)}
   #nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;color:#cfe0f0;padding:10px 10px;border-radius:8px;margin-bottom:4px}
   #nav button:hover{background:rgba(255,255,255,.08)}
   #nav button[aria-current="page"]{background:#f2f7fc;color:var(--sidebar);font-weight:600}
@@ -39,6 +44,8 @@
   .topbar .proj-line{font-weight:600}
   .topbar .crumb{font-size:12px;color:var(--text-2)}
   .topbar .meta{font-size:12px;color:var(--text-2);text-align:right}
+  .meta-row{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--selected);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;flex-shrink:0}
   #menu-toggle{display:none;background:none;border:1px solid var(--border);border-radius:8px;width:44px;height:44px;align-items:center;justify-content:center}
   main{max-width:1530px;padding:28px 36px 60px}
   .notice{background:var(--warn-bg);color:var(--warn-text);border:1px solid #f0dcae;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px}
@@ -48,10 +55,14 @@
   .page-head .desc{color:var(--text-2);max-width:760px}
   .page-head-row{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
   .actions{display:flex;gap:8px;flex-wrap:wrap}
-  .btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600;color:var(--text)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:9px 16px;font-weight:600;color:var(--text)}
   .btn:hover{background:var(--selected)}
   .btn.primary{background:var(--sidebar);border-color:var(--sidebar);color:#fff}
   .btn.primary:hover{background:#0e2f4f}
+  .btn.secondary{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+  .btn.secondary:hover{background:var(--selected)}
+  .btn.text{border:none;background:none;color:var(--accent);padding:9px 6px;text-decoration:none}
+  .btn.text:hover{background:none;text-decoration:underline}
   .btn.danger{color:var(--bad-text);border-color:#efc9c3}
   .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(20,43,65,.04);min-width:0}
@@ -84,6 +95,10 @@
   .badge.bad{background:var(--bad-bg);color:var(--bad-text)}
   .badge.ok{background:var(--ok-bg);color:var(--ok-text)}
   .badge.risk{background:var(--risk-bg);color:var(--risk-text)}
+  .badge.pending{background:var(--warn-bg);color:var(--warn-text)}
+  .badge.red{background:var(--bad-bg);color:var(--bad-text)}
+  .badge.green{background:var(--ok-bg);color:var(--ok-text)}
+  .badge.neutral{background:var(--selected);color:var(--text-2)}
   .row-open{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600}
   .row-open:hover{background:var(--selected)}
   .table-footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--text-2)}
@@ -96,10 +111,19 @@
   .side-card .item:first-of-type{border-top:none}
   .side-card .item .t{font-weight:600}
   .side-card .item .s{color:var(--text-2);font-size:12.5px}
+  .side-card button.item{all:unset;box-sizing:border-box;display:block;width:100%;cursor:pointer;border-top:1px solid var(--border);padding:10px 0;font-size:13px;color:inherit;font-family:inherit}
+  .side-card button.item:first-of-type{border-top:none}
+  .side-card button.item:hover,.side-card button.item:focus-visible{background:var(--selected)}
+  .side-card.next-step{position:relative;overflow:hidden;background:var(--selected);border-color:var(--accent-2)}
+  .side-card.next-step::after{content:"";position:absolute;right:-32px;bottom:-32px;width:120px;height:120px;border-radius:50%;border:14px solid rgba(40,84,117,.12);box-shadow:0 0 0 14px rgba(40,84,117,.06);pointer-events:none}
+  .side-card.next-step h3,.side-card.next-step p,.side-card.next-step .item{position:relative}
   .sequence{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
   .sequence .step{flex:1;min-width:160px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
   .sequence .step .n{font-family:var(--mono);color:var(--accent);font-weight:700;font-size:12px}
   .sequence .step .t{font-weight:600;margin-top:2px}
+  .sequence .step .note{font-size:11px;color:var(--text-2);margin-top:4px}
+  .sequence button.step{cursor:pointer;text-align:left;font:inherit;color:inherit}
+  .sequence button.step:hover,.sequence button.step:focus-visible{background:var(--selected)}
   .grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
   .q-card,.flow-card,.ev-card{padding:16px}
   .q-card .id,.flow-card .id,.ev-card .id{font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
@@ -116,6 +140,19 @@
   .dec-row h3{margin:2px 0 4px;font-size:14px}
   .dec-row p{margin:0;color:var(--text-2);font-size:13px}
   .legend-note{font-size:12px;color:var(--text-2);margin-top:14px}
+  .milestones-timeline{margin-bottom:26px}
+  .timeline-title{font-size:15px;margin:0 0 4px}
+  .timeline-sub{font-size:12.5px;color:var(--text-2);margin:0 0 14px}
+  .timeline-row{display:flex;gap:0}
+  .timeline-node{flex:1;min-width:0;background:none;border:none;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:10px 8px;position:relative;cursor:pointer;font-family:inherit;color:var(--text)}
+  .timeline-node::before{content:"";position:absolute;top:16px;left:-50%;width:100%;height:2px;background:var(--border);z-index:0}
+  .timeline-node:first-child::before{display:none}
+  .node-dot{width:14px;height:14px;border-radius:50%;display:block;z-index:1;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--border)}
+  .node-dot.green{background:var(--ok-text)}
+  .node-dot.neutral{background:var(--text-2)}
+  .node-dot.red{background:var(--bad-text)}
+  .node-label{font-weight:600;font-size:13px}
+  .node-date{font-size:11.5px;color:var(--text-2)}
   footer{max-width:1530px;padding:20px 36px 50px;color:var(--text-2);font-size:12.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
   dialog{border:none;border-radius:14px;padding:0;max-width:680px;width:92vw;max-height:90dvh;box-shadow:0 20px 60px rgba(10,30,50,.25)}
   dialog::backdrop{background:rgba(10,25,40,.45)}
@@ -158,6 +195,9 @@
     .stats{grid-template-columns:1fr 1fr}
     .grid-cards{grid-template-columns:1fr 1fr}
     .sequence{flex-direction:column}
+    .timeline-row{flex-direction:column;align-items:stretch;gap:2px}
+    .timeline-node{flex-direction:row;justify-content:flex-start;text-align:left;gap:10px}
+    .timeline-node::before{display:none}
   }
   @media(max-width:700px){
     #sidebar{position:fixed;left:-238px;top:0;width:238px;z-index:60;transition:left .18s;box-shadow:4px 0 20px rgba(0,0,0,.2)}
@@ -195,17 +235,29 @@
       <span>Preparación y brechas</span>
     </div>
     <nav id="nav" aria-label="Preparación y brechas"></nav>
+    <div class="phase-indicator" aria-label="Fase actual del proyecto">
+      <div class="phase-label">Fase actual del proyecto</div>
+      <div class="phase-text">F0 — Prototipo CLI de viabilidad</div>
+      <div class="phase-segments" aria-hidden="true" title="F0 (actual) de F0 a F6">
+        <span class="seg active"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span>
+      </div>
+    </div>
   </aside>
   <div class="workspace">
     <header class="topbar">
       <button id="menu-toggle" aria-expanded="false" aria-controls="sidebar" aria-label="Abrir menú de navegación">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
       <div>
         <div class="proj-line">PDF Converter <span style="color:var(--text-2);font-weight:400">/ <span id="crumb-view">Resumen</span></span></div>
         <div class="crumb">Diagnóstico de preparación y brechas — prototipo local</div>
       </div>
-      <div class="meta">Snapshot: <strong>2026-10-20</strong><br>Revisión HEAD <code>19eb900</code></div>
+      <div class="meta">
+        <div class="meta-row">
+          <span class="avatar" aria-hidden="true">PB</span>
+          <span>Snapshot: <strong>2026-10-20</strong><br>Revisión HEAD <code>19eb900</code></span>
+        </div>
+      </div>
     </header>
     <main id="main-content" tabindex="-1">
       <div class="notice">
@@ -272,6 +324,41 @@
   </div>
 </dialog>
 
+<dialog id="milestone-dialog" aria-labelledby="milestone-title">
+  <div class="dlg-head">
+    <div>
+      <h2 id="milestone-title" style="margin:0;font-size:17px"></h2>
+      <div class="meta-line" id="milestone-meta"></div>
+    </div>
+    <button class="dlg-close" id="milestone-close-x">Cerrar detalle</button>
+  </div>
+  <div class="dlg-body">
+    <p id="milestone-summary" style="margin:0 0 14px;font-size:13.5px"></p>
+    <div id="milestone-changes"></div>
+    <div id="milestone-related"></div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn" id="milestone-close">Cerrar</button>
+  </div>
+</dialog>
+
+<dialog id="item-dialog" aria-labelledby="item-title">
+  <div class="dlg-head">
+    <div>
+      <h2 id="item-title" style="margin:0;font-size:17px"></h2>
+      <div class="meta-line" id="item-meta"></div>
+    </div>
+    <button class="dlg-close" id="item-close-x">Cerrar detalle</button>
+  </div>
+  <div class="dlg-body">
+    <div class="status-grid" id="item-status"></div>
+    <div id="item-body"></div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn" id="item-close">Cerrar</button>
+  </div>
+</dialog>
+
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -293,7 +380,7 @@ const review = {
   phase: "F0 - Viabilidad (evaluación de motores, corpus y prototipo)",
   baseline_version: "PLAN_APP_CONVERSION_PDF_v1.0.md — plan v1.0.0",
   source_revision: {head:"19eb900", working_tree:"clean", note:"Rama master al día con origin/master; sin cambios sin commit en el momento de esta revisión."},
-  guide_version: "3.0.1",
+  guide_version: "4.0.1",
   schema_version: 2
 };
 
@@ -374,32 +461,37 @@ const deliverables = [
   },
   {
     id:"F0-05", title:"OCR de documentos escaneados", category:"Conversión",
-    risk_category:"tecnico", kind:"pending", priority:"Decisión de umbral aceptada 2026-10-20 — pendiente de implementar el enrutamiento needs_review",
+    risk_category:"tecnico", kind:"ok", priority:"Enrutamiento needs_review de DEC-04 implementado y verificado 2026-10-23",
     owner_role:"Responsable técnico de OCR (rol sugerido)",
-    official_status:"CER normalizado de portada = 3.723% (PSM 3), por encima del umbral único original de 2%. Texto continuo = 0.968% (cumple ese mismo umbral). Catorce variantes de preprocesamiento no mejoraron la portada; PSM 6 la empeora a 60.106%. El 2026-10-20 se aceptó formalmente un criterio diferenciado por tipo de contenido en vez de seguir intentando que un solo número cubra ambos casos (ver decisión DEC-04 y gap).",
-    implementation_status:"partial", verification_status:"failed", decision_status:"accepted",
-    implemented_by:null, verified_by:null, decided_by:null, authority_ref:null, review_by:null, objection:null,
-    history:[{status:"decision_status=accepted (umbral diferenciado por tipo de contenido)", changed_at:"2026-10-20", changed_by_role:"Decisión por instrucción directa del usuario en chat (sin authority_ref externo formal)", note:"Se decidió no seguir promediando ni forzando un único umbral de 2% para portada y texto continuo, dado que 14 experimentos de preprocesamiento no lograron bajar la portada de 3.723%. Ver acceptance_criteria actualizado."}],
-    source_refs:["docs/AVANCE.md#validación-del-prototipo--2026-10-08","docs/PROTOTIPO_F0.md","CLAUDE.md#critical-rules"],
-    gap:"La métrica cruda de portada (3.723%) sigue, como hecho medido, por encima del antiguo umbral único de 2% — eso no cambió ni se maquilló. Lo que cambió es el criterio de aceptación: texto continuo se mide y exige por separado (<=2%, ya cumplido) y portada queda excluida del umbral numérico agregado, marcándose sistemáticamente needs_review en producción en vez de perseguir un número que 14 intentos no alcanzaron. Falta implementar y verificar ese enrutamiento needs_review específico para páginas clasificadas como portada — hoy es una decisión de criterio, no todavía código verificado.",
-    acceptance_criteria:"[Actualizado 2026-10-20] Texto continuo: CER <= 2% (cumplido, 0.968%). Portada: sin umbral numérico en el Gate F0; toda página clasificada como portada con contenido OCR debe marcarse needs_review de forma sistemática en el pipeline de producción, consistente con la regla de CLAUDE.md \"Always return needs_review if uncertainty detected; never hide warnings\". El Gate F0 ya no exige un CER numérico para portada.",
-    next_action:"Implementar el enrutamiento needs_review específico para páginas clasificadas como portada en el pipeline real (hoy es solo una decisión de criterio, no código verificado), y añadir una prueba que confirme que una portada con CER alto efectivamente sale marcada needs_review y no se oculta.",
+    official_status:"CER normalizado de portada = 3.723% (PSM 3), por encima del umbral único original de 2%; esta cifra no cambió ni se intentó mejorar en esta sesión (eso sigue abierto en RSK-03 para scanned_difficult en general). Lo que se implementó y verificó el 2026-10-23 es el enrutamiento needs_review de DEC-04: packages/converters/ocr.py (nuevo) + integración opt-in en packages/converters/digital.py (parámetro ocr=True, flag --ocr en apps/convert.py, antes inexistente — el CLI no ejecutaba OCR en absoluto). Página 1 (\"portada\", heurística posicional, no visual) siempre sale needs_review sin importar la confianza observada; páginas siguientes se enrutan por la confianza media de palabra que reporta el propio Tesseract (piso 0.85, el mismo número que ya usa el ejemplo de ContentWarning en CLAUDE.md, no un umbral inventado).",
+    implementation_status:"implemented", verification_status:"passed", decision_status:"accepted",
+    implemented_by:null, verified_by:"Corrida real de esta sesión (2026-10-23) contra benchmarks/corpus/files/manualcargadorBYD.pdf (la misma muestra de DEC-04): página 1 con confianza real 92% igual quedó needs_review=True (OCR_COVER_PAGE_UNVALIDATED); página 3 con confianza real 95% quedó needs_review=False (OCR_APPLIED). Texto decodificado verificado por code point (UTF-8 correcto; lo que parecía corrupción de acentos era solo una terminal mostrando mal el byte, no el dato real).", decided_by:null, authority_ref:null, review_by:null, objection:null,
+    history:[
+      {status:"decision_status=accepted (umbral diferenciado por tipo de contenido)", changed_at:"2026-10-20", changed_by_role:"Decisión por instrucción directa del usuario en chat (sin authority_ref externo formal)", note:"Se decidió no seguir promediando ni forzando un único umbral de 2% para portada y texto continuo, dado que 14 experimentos de preprocesamiento no lograron bajar la portada de 3.723%. Ver acceptance_criteria actualizado."},
+      {status:"implementation_status=implemented, verification_status=passed", changed_at:"2026-10-23", changed_by_role:"Implementación y verificación en esta sesión, por instrucción directa del usuario (\"procede con F0-05\")", note:"Antes de escribir código se confirmó que el pipeline real (apps/convert.py) no ejecutaba OCR en absoluto (solo pdfplumber); construir el enrutamiento adelanta alcance de F4 a F0 por decisión explícita del usuario tras preguntárselo. Tesseract 5.4.0 y Poppler sí están instalados en esta sesión (no estaban en PATH el 2026-10-20). Se agregaron 5 pruebas en tests/unit/test_ocr_routing.py, incluida una end-to-end con OCR real (no mockeada) sobre la muestra de DEC-04; las 5 pasan. Suite completa: 43 passed, 3 failed — los 3 fallos son preexistentes y no relacionados (python-docx no instalado en el intérprete que ejecuta subprocess, documentado ya en AVANCE.md)."}
+    ],
+    source_refs:["docs/AVANCE.md#validación-del-prototipo--2026-10-08","docs/PROTOTIPO_F0.md","CLAUDE.md#critical-rules","packages/converters/ocr.py","packages/converters/digital.py","tests/unit/test_ocr_routing.py"],
+    gap:"Cerrado el enrutamiento needs_review en sí (código implementado y verificado con OCR real). Sigue abierto, sin relación con este cierre: (1) la métrica cruda de portada (3.723%) no mejoró, DEC-04 ya aceptó eso; (2) la heurística de \"portada\" es puramente posicional (page_number==1) — un documento con portada en otra página, o con portada multipágina, se clasifica mal; queda documentado como límite conocido, no oculto; (3) scanned_difficult en general (RSK-03) sigue sin el mismo tratamiento de calidad.",
+    acceptance_criteria:"[Actualizado 2026-10-20] Texto continuo: CER <= 2% (cumplido, 0.968%). Portada: sin umbral numérico en el Gate F0; toda página clasificada como portada con contenido OCR debe marcarse needs_review de forma sistemática en el pipeline de producción, consistente con la regla de CLAUDE.md \"Always return needs_review if uncertainty detected; never hide warnings\". [Cumplido 2026-10-23: implementado y verificado con OCR real contra la muestra de referencia.]",
+    next_action:"Ninguna acción pendiente sobre el enrutamiento needs_review en sí. Pendiente, por separado: aplicar el mismo tratamiento de calidad a scanned_difficult (RSK-03) y, si se usa en producción, revisar la heurística posicional de portada contra documentos reales con portada fuera de la página 1.",
     fields:fields([
       {key:"context", label:"Contexto adicional observado", question_ids:["Q-02"], hint:"Qué tipo de escaneo falla y cuál no.", example:"Portadas con diseño denso fallan más que texto continuo simple."},
-      {key:"evidence", label:"Evidencia aportada", hint:"Referencia a experimento o CER medido.", example:"14 experimentos OCR documentados en AVANCE.md, ninguno mejora portada; decisión de criterio registrada 2026-10-20."},
-      {key:"limits", label:"Límites observados", hint:"Qué clases no se probaron aún.", example:"scanned_difficult (2/10 PDFs) casi sin ground truth todavía. El enrutamiento needs_review para portada no está implementado en código, solo decidido como criterio."},
-      {key:"next", label:"Siguiente acción propuesta", hint:"Paso concreto.", example:"Implementar y probar el enrutamiento needs_review para portada en el pipeline real."}
+      {key:"evidence", label:"Evidencia aportada", hint:"Referencia a experimento o CER medido.", example:"14 experimentos OCR documentados en AVANCE.md, ninguno mejora portada; decisión de criterio registrada 2026-10-20; enrutamiento implementado y verificado con OCR real 2026-10-23 (ver history)."},
+      {key:"limits", label:"Límites observados", hint:"Qué clases no se probaron aún.", example:"scanned_difficult (2/10 PDFs) casi sin ground truth todavía. La heurística de portada es solo posicional (page_number==1), no visual."},
+      {key:"next", label:"Siguiente acción propuesta", hint:"Paso concreto.", example:"Aplicar el mismo criterio de calidad a scanned_difficult; revisar la heurística de portada si se usa en producción con documentos reales."}
     ])
   },
   {
     id:"F0-06", title:"API mínima (FastAPI)", category:"Infraestructura",
     risk_category:"tecnico", kind:"pending", priority:"Después de Gate F0 (F1)",
     owner_role:"Responsable backend/API (rol sugerido)",
-    official_status:"Esqueleto de aplicación presente (apps/api/main.py, config.py: fábrica de app, CORS, metadata OpenAPI). No se encontraron rutas de negocio, autenticación ni conexión a base de datos en el código inspeccionado. AVANCE.md lista \"Funcionalidad mínima de API\" como pendiente de verificación.",
+    official_status:"Esqueleto de aplicación presente (apps/api/main.py, config.py: fábrica de app, CORS, metadata OpenAPI). No se encontraron rutas de negocio, autenticación ni conexión a base de datos en el código inspeccionado. AVANCE.md lista \"Funcionalidad mínima de API\" como pendiente de verificación. [Nota 2026-10-23, para evitar una lectura contradictoria con F0-10/general: existe un servidor FastAPI real y funcional en apps/local_review_ui.py, pero es deliberadamente otra cosa — un wrapper local de un solo usuario sobre apps/convert.py, sin auth/DB/cola, no reutiliza ni avanza apps/api/. No cuenta como avance de esta área.]",
     implementation_status:"partial", verification_status:"not_verified", decision_status:"pending",
-    implemented_by:null, verified_by:null, decided_by:null, authority_ref:null, history:[], objection:null, review_by:null,
-    source_refs:["apps/api/main.py","apps/api/config.py","docs/AVANCE.md#estado-resumen"],
-    gap:"No hay endpoints de upload, conversión ni estado implementados todavía; el esqueleto solo configura la instancia de FastAPI.",
+    implemented_by:null, verified_by:null, decided_by:null, authority_ref:null,
+    history:[{status:"note", changed_at:"2026-10-23", changed_by_role:"Implementación de esta sesión, por instrucción directa del usuario (\"genera un front end en web\")", note:"Se construyó apps/local_review_ui.py (FastAPI) como wrapper de conveniencia local sobre el CLI existente, explícitamente fuera de apps/api/ y sin tocar este esqueleto, para no reclamar avance de F1 que no ocurrió. Verificado con pruebas reales (tests/unit/test_local_review_ui.py, 4 passed, sin mocks) y en navegador real."}],
+    objection:null, review_by:null,
+    source_refs:["apps/api/main.py","apps/api/config.py","docs/AVANCE.md#estado-resumen","apps/local_review_ui.py"],
+    gap:"No hay endpoints de upload, conversión ni estado implementados todavía en apps/api/; el esqueleto solo configura la instancia de FastAPI. (apps/local_review_ui.py sí resuelve esto para un usuario local, pero fuera de esta área por diseño — ver seguimiento.md 2026-10-23 para el detalle.)",
     acceptance_criteria:"Al menos un endpoint end-to-end (p. ej. upload de PDF) funcionando contra almacenamiento real, con prueba de integración.",
     next_action:"Definir y construir el primer endpoint de F1 (probablemente upload) antes de reclamar avance de API.",
     fields:fields([
@@ -516,7 +608,7 @@ const flows = [
   {id:"FLOW-02", area_id:"F0-02", icon:"flask", name:"Pipeline de benchmark P02 (tablas + OCR)", explanation:"Compara pdfplumber, Camelot, Tesseract y OCRmyPDF contra umbrales del Gate F0.", doc_status:"Completo (runner.py, tables_benchmark.py, ocr_benchmark.py)", exec_status:"Validado en entorno de desarrollo Windows; sin CI"},
   {id:"FLOW-03", area_id:"F0-06", icon:"api", name:"API REST (FastAPI)", explanation:"Expondría upload, conversión y descarga según el plan F1.", doc_status:"Planeado en PLAN_APP_CONVERSION_PDF_v1.0.md", exec_status:"No iniciado — solo esqueleto de app"},
   {id:"FLOW-04", area_id:"F0-07", icon:"queue", name:"Worker asíncrono (Celery)", explanation:"Ejecutaría la conversión aislada del proceso API, con idempotencia.", doc_status:"Plantilla de tarea presente", exec_status:"No verificado contra broker real"},
-  {id:"FLOW-05", area_id:"F0-05", icon:"scan", name:"OCR de documentos escaneados (Tesseract)", explanation:"Extrae texto de páginas escaneadas vía Tesseract + OCRmyPDF.", doc_status:"Parcial — experimentado en benchmarks", exec_status:"Umbral diferenciado aceptado 2026-10-20 (texto continuo cumple; portada sin umbral numérico, needs_review pendiente de implementar)"}
+  {id:"FLOW-05", area_id:"F0-05", icon:"scan", name:"OCR de documentos escaneados (Tesseract)", explanation:"Extrae texto de páginas escaneadas vía Tesseract (opt-in, --ocr); OCRmyPDF no se integró (fuera de este alcance mínimo).", doc_status:"Implementado y verificado 2026-10-23 (packages/converters/ocr.py)", exec_status:"Umbral diferenciado de DEC-04 implementado: texto continuo cumple vía confianza de Tesseract (piso 0.85); portada sin umbral numérico, needs_review sistemático verificado con OCR real"}
 ];
 
 const discrepancies = [
@@ -530,7 +622,7 @@ const blockers = [
   {id:"BLK-01", cause:"Corpus incompleto (37/60 PDFs registrados)", status:"open", severity:"high", category:"operativo", dependency:"Disponibilidad de más documentos reales autorizados, especialmente scanned_difficult y mixed.", closure_condition:"10+ PDFs por categoría principal con ground truth.", next_action:"Recolección dirigida a las dos categorías más atrasadas.", mitigation_plan:"Priorizar fuentes ya autorizadas antes de buscar nuevas.", contingency_plan:"Evaluar un Gate F0 parcial solo para las categorías ya completas, documentando la limitación.", opened_at:"2026-10-09", due_at:null, owner_role:"Responsable de datos/corpus", follow_up_owner_role:"Coordinador de proyecto", escalated_to:null, escalated_at:null, related_decision_id:"DEC-01", related_source_id:null, caused_by_risk_id:null, history:[]},
   {id:"BLK-02", cause:"Word (DOCX) validado en un solo diseño de documento", status:"open", severity:"medium", category:"funcional", dependency:"Disponibilidad de diseños adicionales representativos del corpus real.", closure_condition:"CER aceptable en 3+ diseños distintos.", next_action:"Anotar otros diseños y evaluar estructura/imágenes.", mitigation_plan:"Reutilizar documentos ya recolectados en F0-01 con estructura distinta.", contingency_plan:"Declarar DOCX viable solo para el tipo de diseño probado, como limitación explícita.", opened_at:"2026-10-09", due_at:null, owner_role:"Responsable de conversión documental", follow_up_owner_role:"Coordinador de proyecto", escalated_to:null, escalated_at:null, related_decision_id:null, related_source_id:null, caused_by_risk_id:"RSK-02", history:[]},
   {id:"BLK-03", cause:"Referencias (ground truth) parciales de tablas complejas y OCR limpio", status:"open", severity:"medium", category:"tecnico", dependency:"Tiempo de anotación manual de páginas adyacentes.", closure_condition:"Ground truth completo por documento, no solo por página aislada.", next_action:"Ampliar páginas adyacentes y documentos reservados.", mitigation_plan:"Priorizar los documentos con mayor cobertura potencial.", contingency_plan:"Reportar F1/CER con el alcance parcial explícito, sin generalizar.", opened_at:"2026-10-09", due_at:null, owner_role:"Responsable técnico de benchmarking", follow_up_owner_role:"Coordinador de proyecto", escalated_to:null, escalated_at:null, related_decision_id:null, related_source_id:null, caused_by_risk_id:null, history:[]},
-  {id:"BLK-04", cause:"CER de portada OCR limpio (3.723%) supera el umbral candidato de 2%", status:"closed", severity:"high", category:"tecnico", dependency:"Investigación de segmentación/preprocesamiento específico para portadas.", closure_condition:"CER <= umbral acordado, o umbral revisado y justificado. [Cumplido 2026-10-20: umbral revisado y justificado — ver DEC-04]", next_action:"Implementar el enrutamiento needs_review para portada (ver F0-05, next_action).", mitigation_plan:"Separar el reporte de CER por tipo de contenido (portada vs. texto continuo).", contingency_plan:"Marcar portadas como needs_review sistemático si el umbral no se alcanza.", opened_at:"2026-10-09", due_at:null, owner_role:"Responsable técnico de OCR", follow_up_owner_role:"Responsable técnico de benchmarking", escalated_to:null, escalated_at:null, related_decision_id:"DEC-04", related_source_id:null, caused_by_risk_id:"RSK-03", history:[{status:"closed", changed_at:"2026-10-20", changed_by_role:"Decisión por instrucción directa del usuario en chat", note:"Umbral único reemplazado por criterio diferenciado (DEC-04); no se cerró mejorando el CER, se cerró revisando y justificando el umbral, tal como ya permitía la propia closure_condition original."}]},
+  {id:"BLK-04", cause:"CER de portada OCR limpio (3.723%) supera el umbral candidato de 2%", status:"closed", severity:"high", category:"tecnico", dependency:"Investigación de segmentación/preprocesamiento específico para portadas.", closure_condition:"CER <= umbral acordado, o umbral revisado y justificado. [Cumplido 2026-10-20: umbral revisado y justificado — ver DEC-04]", next_action:"Ninguna (el enrutamiento needs_review para portada se implementó y verificó 2026-10-23; ver F0-05).", mitigation_plan:"Separar el reporte de CER por tipo de contenido (portada vs. texto continuo).", contingency_plan:"Marcar portadas como needs_review sistemático si el umbral no se alcanza.", opened_at:"2026-10-09", due_at:null, owner_role:"Responsable técnico de OCR", follow_up_owner_role:"Responsable técnico de benchmarking", escalated_to:null, escalated_at:null, related_decision_id:"DEC-04", related_source_id:null, caused_by_risk_id:"RSK-03", history:[{status:"closed", changed_at:"2026-10-20", changed_by_role:"Decisión por instrucción directa del usuario en chat", note:"Umbral único reemplazado por criterio diferenciado (DEC-04); no se cerró mejorando el CER, se cerró revisando y justificando el umbral, tal como ya permitía la propia closure_condition original."}]},
   {id:"BLK-05", cause:"Licencias y modelo de costo pendientes — no se puede aprobar F0/F1 sin esto", status:"open", severity:"blocker", category:"legal_fiscal_seguridad", dependency:"Revisión legal externa y medición de recursos de producción.", closure_condition:"Licencias sin bloqueadores y modelo de costo definido, ambos documentados en docs/LICENCIAS.md.", next_action:"Revisión del stack efectivo y medición de recursos antes de F1.", mitigation_plan:"Empezar por las dependencias de mayor riesgo (pypdfium2 LGPL, Tesseract).", contingency_plan:"Buscar alternativas con licencia menos restrictiva si la revisión legal bloquea pypdfium2.", opened_at:"2026-10-09", due_at:null, owner_role:"Responsable legal/costos", follow_up_owner_role:"Coordinador de proyecto", escalated_to:null, escalated_at:null, related_decision_id:null, related_source_id:null, caused_by_risk_id:null, history:[]},
   {id:"BLK-06", cause:"Archivo de identificación oficial real (INE) sin confirmación de borrado en el corpus de pruebas", status:"closed", severity:"blocker", category:"datos_personales", dependency:"Acceso al filesystem local donde vive benchmarks/corpus/files/ (excluido de git).", closure_condition:"Confirmar eliminación física del archivo y verificar que nunca llegó al historial de git remoto. [Cumplido 2026-10-20]", next_action:"Ninguna; ver riesgo residual general en RSK-05.", mitigation_plan:"Tratar el hallazgo como de máxima prioridad, antes que cualquier otra tarea de esta sesión.", contingency_plan:"Si el archivo llegó a un remoto, escalar como incidente de datos personales según el proceso del proyecto.", opened_at:"2026-10-09", due_at:null, owner_role:"Responsable de seguridad y datos personales", follow_up_owner_role:"Coordinador de proyecto", escalated_to:null, escalated_at:null, related_decision_id:"DEC-02", related_source_id:null, caused_by_risk_id:null, history:[{status:"closed", changed_at:"2026-10-20", changed_by_role:"Revisión documental (sesión Claude)", note:"Verificado de forma independiente: archivo ausente del filesystem, sin rastro en git log --all --full-history, y manifest (37 filas) coincide exactamente con los 37 archivos reales en benchmarks/corpus/files/."}]}
 ];
@@ -538,7 +630,7 @@ const blockers = [
 const risks = [
   {id:"RSK-01", description:"El motor PDF principal (pdfplumber) podría quedar sin mantenimiento en el futuro.", category:"tecnico", probability:"media", impact:"alto", severity:"high", mitigation_plan:"Mantener adaptadores desacoplados por motor; SBOM actualizado.", contingency_plan:"Migrar a Docling u otro motor si pdfplumber deja de recibir parches.", owner_role:"Responsable técnico de benchmarking", follow_up_owner_role:"Coordinador de proyecto", status:"open", materialized_to_blocker_id:null, review_by:null, related_decision_id:null, related_source_id:null, history:[]},
   {id:"RSK-02", description:"Conflicto entre editabilidad y fidelidad visual en la conversión a Word.", category:"funcional", probability:"media", impact:"medio", severity:"medium", mitigation_plan:"Evaluar con corpus ampliado en F0/F1; priorizar editabilidad explícitamente (regla ya fijada en CLAUDE.md).", contingency_plan:"Documentar degradación visual esperada por tipo de layout.", owner_role:"Responsable de conversión documental", follow_up_owner_role:"Coordinador de proyecto", status:"open", materialized_to_blocker_id:"BLK-02", review_by:null, related_decision_id:null, related_source_id:null, history:[]},
-  {id:"RSK-03", description:"OCR de baja calidad en documentos escaneados difíciles (scanned_difficult) y en portadas en general.", category:"tecnico", probability:"media", impact:"medio", severity:"medium", mitigation_plan:"Separar evaluación y umbral por clase de documento (decidido para portada el 2026-10-20, ver DEC-04); falta aplicar el mismo criterio a scanned_difficult.", contingency_plan:"Marcar needs_review sistemático para scanned_difficult y portadas hasta mejorar el pipeline.", owner_role:"Responsable técnico de OCR", follow_up_owner_role:"Responsable técnico de benchmarking", status:"open", materialized_to_blocker_id:"BLK-04", review_by:null, related_decision_id:"DEC-04", related_source_id:null, history:[{status:"mitigation_plan updated", changed_at:"2026-10-20", changed_by_role:"Decisión por instrucción directa del usuario en chat", note:"BLK-04 (portada) cerrado vía DEC-04; scanned_difficult en general sigue abierto."}]},
+  {id:"RSK-03", description:"OCR de baja calidad en documentos escaneados difíciles (scanned_difficult) y en portadas en general.", category:"tecnico", probability:"media", impact:"medio", severity:"medium", mitigation_plan:"Separar evaluación y umbral por clase de documento (decidido para portada el 2026-10-20, ver DEC-04); falta aplicar el mismo criterio a scanned_difficult.", contingency_plan:"Marcar needs_review sistemático para scanned_difficult y portadas hasta mejorar el pipeline.", owner_role:"Responsable técnico de OCR", follow_up_owner_role:"Responsable técnico de benchmarking", status:"open", materialized_to_blocker_id:"BLK-04", review_by:null, related_decision_id:"DEC-04", related_source_id:null, history:[{status:"mitigation_plan updated", changed_at:"2026-10-20", changed_by_role:"Decisión por instrucción directa del usuario en chat", note:"BLK-04 (portada) cerrado vía DEC-04; scanned_difficult en general sigue abierto."},{status:"note", changed_at:"2026-10-23", changed_by_role:"Implementación de esta sesión", note:"El mecanismo de enrutamiento needs_review (packages/converters/ocr.py) ya es genérico por página, no exclusivo de portada — aplicaría igual a scanned_difficult. Pero la calidad de OCR de scanned_difficult en sí (sus propios CER) no se midió ni mejoró en esta sesión; el riesgo sigue abierto."}]},
   {id:"RSK-04", description:"Escalabilidad no probada bajo carga real (tamaño de corpus, concurrencia de jobs).", category:"tecnico", probability:"baja", impact:"alto", severity:"high", mitigation_plan:"Benchmark de recursos con límites (ya iniciado: resource_benchmark.py).", contingency_plan:"Definir límites conservadores de tamaño/páginas hasta tener evidencia de carga.", owner_role:"Responsable backend/infraestructura", follow_up_owner_role:"Coordinador de proyecto", status:"open", materialized_to_blocker_id:null, review_by:null, related_decision_id:null, related_source_id:null, history:[]},
   {id:"RSK-05", description:"Pérdida o filtración de datos personales reales presentes en el corpus de pruebas durante la retención local. El hallazgo puntual del archivo de identificación (BLK-06) ya se cerró el 2026-10-20; el riesgo general de retención del resto del corpus (estados de cuenta, constancias fiscales, acta notarial) permanece abierto.", category:"datos_personales", probability:"baja", impact:"crítico", severity:"blocker", mitigation_plan:".gitignore confirmado efectivo (benchmarks/corpus/files/* nunca se commitea); archivo de identificación más sensible ya eliminado. Pendiente: limitar el acceso local al resto del corpus y revisar retención periódica.", contingency_plan:"Plan de notificación e incidente si se detecta filtración, según el proceso de datos personales que el proyecto adopte.", owner_role:"Responsable de seguridad y datos personales", follow_up_owner_role:"Coordinador de proyecto", status:"open", materialized_to_blocker_id:null, review_by:"2026-11-20", related_decision_id:"DEC-02", related_source_id:null, history:[{status:"mitigation_plan updated", changed_at:"2026-10-20", changed_by_role:"Revisión documental (sesión Claude)", note:"BLK-06 cerrado; riesgo general de retención permanece abierto."}]}
 ];
@@ -552,7 +644,7 @@ const decisions = [
   {id:"DEC-01", family:"gate", title:"Aprobar o no el avance a F1 con la muestra actual de corpus", explanation:"ADR 0004 ya documenta mantener el experimento como prototipo local; falta la decisión formal de gate con criterios cuantitativos cerrados.", status:"Por revisar", area_id:"F0-11"},
   {id:"DEC-02", family:"alcance", title:"Qué hacer con el archivo de identificación real (INE) sin eliminar", explanation:"Resuelto 2026-10-20: verificación independiente confirmó que el archivo ya no existe en el filesystem ni en el historial de git. Queda pendiente, por separado, la vigilancia del riesgo general de retención del resto del corpus (RSK-05).", status:"Resuelto — verificado", area_id:"F0-08"},
   {id:"DEC-03", family:"tecnica", title:"Evaluar Docling en P02 pese al peso de sus dependencias", explanation:"Docling fue omitido a propósito en la corrida de validación; decidir si se instala antes del Gate F0 o se documenta como fuera de alcance del MVP.", status:"Por revisar", area_id:"F0-02"},
-  {id:"DEC-04", family:"tecnica", title:"Adoptar un umbral de CER diferenciado por tipo de contenido para OCR (portada vs. texto continuo)", explanation:"Aceptado 2026-10-20, por instrucción directa del usuario en chat (sin authority_ref externo formal): en vez de seguir intentando que portada y texto continuo cumplan el mismo 2% tras 14 experimentos fallidos, texto continuo se mide y exige por separado (<=2%, cumplido) y portada queda sin umbral numérico en el Gate F0, marcándose needs_review de forma sistemática. Pendiente: implementar y verificar ese enrutamiento needs_review en el pipeline real (no es todavía código verificado, solo el criterio).", status:"Resuelto — aceptado, implementación pendiente", area_id:"F0-05"}
+  {id:"DEC-04", family:"tecnica", title:"Adoptar un umbral de CER diferenciado por tipo de contenido para OCR (portada vs. texto continuo)", explanation:"Aceptado 2026-10-20, por instrucción directa del usuario en chat (sin authority_ref externo formal): en vez de seguir intentando que portada y texto continuo cumplan el mismo 2% tras 14 experimentos fallidos, texto continuo se mide y exige por separado (<=2%, cumplido) y portada queda sin umbral numérico en el Gate F0, marcándose needs_review de forma sistemática. Implementado y verificado 2026-10-23 con OCR real (packages/converters/ocr.py); ver F0-05 para la evidencia.", status:"Resuelto — aceptado e implementado", area_id:"F0-05"}
 ];
 
 const sources = [
@@ -564,6 +656,47 @@ const sources = [
   {id:"SRC-06", path:"apps/worker/tasks.py", section:"Completo (242 líneas)", status:"pending_reconciliation", revisado_el:null, vigencia_max_dias:30, note:"Solo conteo de líneas verificado; contenido no releído en esta sesión."},
   {id:"SRC-07", path:"docs/LICENCIAS.md", section:"Completo", status:"pending_reconciliation", revisado_el:null, vigencia_max_dias:30, note:"No abierto en esta sesión; mencionado en AVANCE.md."},
   {id:"SRC-08", path:"CLAUDE.md", section:"Completo", status:"reconciled", revisado_el:"2026-10-20", vigencia_max_dias:60, note:"Leído completo como instrucciones del repositorio para esta sesión."}
+];
+
+const milestones = [
+  {
+    id:"HITO-01", label:"Inicio del proyecto", status:"done",
+    planned_date:null, actual_date:"2026-10-07",
+    summary:"Bootstrap de la estructura del proyecto a partir de PLAN_APP_CONVERSION_PDF_v1.0.md.",
+    changes:[
+      {type:"defined", text:"CLAUDE.md inicial con arquitectura y guías de desarrollo.", source_refs:[{tipo:"commit", referencia:"2e5002e", fecha:"2026-10-07"}]},
+      {type:"added", text:"Estructura de proyecto arrancada desde el plan v1.0.", source_refs:[{tipo:"commit", referencia:"6cb7b96", fecha:"2026-10-07"}]}
+    ],
+    related_area_ids:[], related_decision_ids:[], owner_role:null, history:[]
+  },
+  {
+    id:"HITO-02", label:"MVP", status:"planned",
+    planned_date:null, actual_date:null,
+    summary:"MVP no alcanzado todavía: el estado actual es un prototipo CLI de viabilidad (F0); la aplicación web y la carga de archivos siguen pendientes según el propio README.",
+    changes:[
+      {type:"defined", text:"Las características del MVP listadas en el README son el objetivo, no el estado actual del proyecto.", source_refs:[{tipo:"log", referencia:"README.md (Características Principales)", fecha:"2026-10-07"}]},
+      {type:"added", text:"Flujo local PDF a XLSX/DOCX/TXT probado vía CLI como prototipo de viabilidad (F0).", source_refs:[{tipo:"log", referencia:"README.md", fecha:"2026-10-07"},{tipo:"log", referencia:"docs/PROTOTIPO_F0.md", fecha:"2026-10-07"}]}
+    ],
+    related_area_ids:[], related_decision_ids:[], owner_role:null, history:[]
+  },
+  {
+    id:"HITO-03", label:"Revisión en QA", status:"planned",
+    planned_date:null, actual_date:null,
+    summary:"Sin evidencia de pruebas automatizadas propias más allá del bootstrap inicial; docs/PROTOTIPO_F0.md documenta anotaciones y limitaciones medidas del prototipo F0, no una fase de QA formal.",
+    changes:[
+      {type:"defined", text:"Anotaciones, validación y limitaciones medidas del prototipo F0, documentadas pero no como QA formal separada.", source_refs:[{tipo:"log", referencia:"docs/PROTOTIPO_F0.md", fecha:"2026-10-07"}]}
+    ],
+    related_area_ids:[], related_decision_ids:[], owner_role:null, history:[]
+  },
+  {
+    id:"HITO-04", label:"Salida a producción", status:"planned",
+    planned_date:null, actual_date:null,
+    summary:"Ninguna evidencia de despliegue; el README actual no declara una fase de producción.",
+    changes:[
+      {type:"defined", text:"No hay declaración de despliegue o producción en el README actual.", source_refs:[{tipo:"log", referencia:"README.md", fecha:"2026-10-20"}]}
+    ],
+    related_area_ids:[], related_decision_ids:[], owner_role:null, history:[]
+  }
 ];
 
 const navItems = [
@@ -593,7 +726,7 @@ const icons = {
   queue:'<rect x="3" y="5" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="15" width="18" height="4" rx="1"/>',
   scan:'<path d="M4 7V5a2 2 0 0 1 2-2h2M20 7V5a2 2 0 0 0-2-2h-2M4 17v2a2 2 0 0 0 2 2h2M20 17v2a2 2 0 0 1-2 2h-2M3 12h18"/>'
 };
-function icon(name, size){ size=size||18; return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icons[name]||icons.evidence}</svg>`; }
+function icon(name, size){ size=size||18; return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icons[name]||icons.evidence}</svg>`; }
 
 /* ------------------------- estado en memoria ------------------------- */
 let draft = {};       // draft[areaId][fieldKey] = texto
@@ -679,6 +812,18 @@ function renderOverview(){
   const sec = document.getElementById("view-overview");
   const visible = deliverables.filter(d=>matchesFilter(d) && matchesSearch(d));
   sec.innerHTML = `
+    <section class="milestones-timeline" aria-label="Línea de tiempo de hitos del proyecto">
+      <h2 class="timeline-title">Línea de tiempo de hitos del proyecto</h2>
+      <p class="timeline-sub">Hitos reales del proyecto, con fuente y detalle de qué cambió en cada uno. No es progreso certificado.</p>
+      <div class="timeline-row">
+        ${milestones.map(m=>`
+          <button type="button" class="timeline-node" data-milestone="${m.id}" aria-haspopup="dialog" aria-label="Abrir hito ${esc(m.label)}">
+            <span class="node-dot ${milestoneDotClass(m.status)}"></span>
+            <span class="node-label">${esc(m.label)}</span>
+            <span class="node-date">${esc(milestoneDateText(m))}</span>
+          </button>`).join("")}
+      </div>
+    </section>
     <div class="overview-grid">
       <div class="card table-card">
         <div class="table-toolbar">
@@ -701,7 +846,7 @@ function renderOverview(){
               <td class="col-role">${esc(d.owner_role)}</td>
               <td>${esc(d.official_status)}</td>
               <td><button class="row-open" data-open="${d.id}" aria-label="Abrir ficha de ${d.id}">Abrir ficha</button></td>
-            </tr>`).join("") || `<tr><td colspan="4"><div class="no-match">Sin coincidencias con el filtro y la búsqueda actuales.<br><button class="btn" id="clear-filters" style="margin-top:8px">Quitar filtros</button></div></td></tr>`}
+            </tr>`).join("") || `<tr><td colspan="4"><div class="no-match">Sin coincidencias con el filtro y la búsqueda actuales.<br><button class="btn text" id="clear-filters" style="margin-top:8px">Quitar filtros</button></div></td></tr>`}
           </tbody>
         </table>
         </div>
@@ -711,34 +856,45 @@ function renderOverview(){
         </div>
       </div>
       <div class="side-col">
-        <div class="card side-card">
+        <div class="card side-card next-step">
           <h3>El siguiente paso</h3>
           <p>Según el Gate F0, la decisión central de esta fase.</p>
           <div class="item"><div class="t">F0-11 · Gate F0 — decisión Go/No-Go</div><div class="s">Depende de F0-01, F0-02 y F0-09. F0-05 ya no bloquea (ver DEC-04).</div><button class="row-open" data-open="F0-11" style="margin-top:6px">Abrir ficha</button></div>
         </div>
         <div class="card side-card">
           <h3>Fuentes por conciliar</h3>
-          <p>Discrepancias documentales detectadas en esta revisión.</p>
-          ${discrepancies.map(x=>`<div class="item"><div class="t">${x.id} · ${esc(x.title)}</div><div class="s">${esc(x.status)}</div></div>`).join("")}
+          <p>Discrepancias documentales detectadas en esta revisión. Abre una para ver su descripción íntegra y la fuente/evidencia exacta.</p>
+          ${discrepancies.map(x=>`<button type="button" class="item" data-discrepancy="${x.id}" aria-haspopup="dialog" aria-label="Abrir detalle de ${x.id}"><div class="t">${x.id} · ${esc(x.title)}</div><div class="s">${esc(x.status)}</div></button>`).join("")}
+        </div>
+        <div class="card side-card">
+          <h3>Riesgos abiertos (${risks.filter(r=>r.status==='open').length})</h3>
+          <p>Ver severidad, categoría, plan de mitigación y revisión por riesgo (§3.15 del documento de referencia).</p>
+          ${risks.filter(r=>r.status==='open').sort((a,b)=>sevRank(b.severity)-sevRank(a.severity)).map(r=>`
+            <button type="button" class="item" data-risk="${r.id}" aria-haspopup="dialog" aria-label="Abrir detalle de ${r.id}"><div class="t">${r.id} · ${esc(r.description)}</div><div class="s">${severityBadge(r.severity)} · ${esc(riskLabels[r.category]||r.category)}</div></button>`).join("")}
         </div>
         <div class="card side-card">
           <h3>Bloqueos abiertos (${blockers.filter(b=>b.status==='open').length})</h3>
-          <p>Severidad y antigüedad calculadas desde <code>opened_at</code>.</p>
+          <p>Severidad y antigüedad calculadas desde <code>opened_at</code>. Abre uno para ver plan de mitigación, contingencia y revisión.</p>
           ${blockers.filter(b=>b.status==='open').sort((a,b)=>sevRank(b.severity)-sevRank(a.severity)).map(b=>`
-            <div class="item"><div class="t">${b.id} · ${esc(b.cause)}</div><div class="s">${severityBadge(b.severity)} · abierto hace ${daysOpen(b.opened_at)} días</div></div>`).join("")}
+            <button type="button" class="item" data-blocker="${b.id}" aria-haspopup="dialog" aria-label="Abrir detalle de ${b.id}"><div class="t">${b.id} · ${esc(b.cause)}</div><div class="s">${severityBadge(b.severity)} · abierto hace ${daysOpen(b.opened_at)} días</div></button>`).join("")}
         </div>
       </div>
     </div>
     <div class="sequence" aria-label="Secuencia de trabajo, no progreso certificado">
-      <div class="step"><div class="n">01</div><div class="t">Alcance</div></div>
-      <div class="step"><div class="n">02</div><div class="t">Evidencia</div></div>
-      <div class="step"><div class="n">03</div><div class="t">Decisiones</div></div>
-      <div class="step"><div class="n">04</div><div class="t">Validación</div></div>
+      <div class="step"><div class="n">01</div><div class="t">Alcance</div><div class="note">Sin ficha única equivalente en este dashboard — fuera de alcance de la navegación</div></div>
+      <button type="button" class="step" data-view="evidence"><div class="n">02</div><div class="t">Evidencia</div></button>
+      <button type="button" class="step" data-view="decisions"><div class="n">03</div><div class="t">Decisiones</div></button>
+      <div class="step"><div class="n">04</div><div class="t">Validación</div><div class="note">Sin vista propia en este dashboard — fuera de alcance de la navegación</div></div>
     </div>
     <p class="legend-note">Riesgos registrados: ${risks.length} (ver §3.15 del documento de referencia). verification_coverage: ${pct(deliverables.filter(d=>d.verification_status==='passed').length, deliverables.length)} · decision_coverage: ${pct(deliverables.filter(d=>['accepted','rejected'].includes(d.decision_status)).length, deliverables.length)}.</p>
   `;
   sec.querySelectorAll("[data-filter]").forEach(b=>b.addEventListener("click", ()=>{ currentFilter=b.dataset.filter; renderOverview(); }));
   sec.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click", ()=>openDetail(b.dataset.open, b)));
+  sec.querySelectorAll("[data-milestone]").forEach(b=>b.addEventListener("click", ()=>openMilestone(b.dataset.milestone, b)));
+  sec.querySelectorAll("[data-discrepancy]").forEach(b=>b.addEventListener("click", ()=>openDiscrepancy(b.dataset.discrepancy, b)));
+  sec.querySelectorAll("[data-risk]").forEach(b=>b.addEventListener("click", ()=>openRisk(b.dataset.risk, b)));
+  sec.querySelectorAll("[data-blocker]").forEach(b=>b.addEventListener("click", ()=>openBlocker(b.dataset.blocker, b)));
+  sec.querySelectorAll(".step[data-view]").forEach(b=>b.addEventListener("click", ()=>switchView(b.dataset.view)));
   const si = sec.querySelector("#search-input");
   if(si) si.addEventListener("input", ()=>{ searchTerm=si.value; renderOverview(); document.getElementById("search-input").focus(); document.getElementById("search-input").selectionStart=document.getElementById("search-input").value.length; });
   const cf = sec.querySelector("#clear-filters");
@@ -750,6 +906,16 @@ function sevRank(s){ return {blocker:4,high:3,medium:2,low:1}[s]||0; }
 function severityBadge(s){ const m={blocker:'bad',high:'bad',medium:'warn',low:'ok'}; return `<span class="badge ${m[s]||'warn'}">${s}</span>`; }
 function daysOpen(dateStr){ if(!dateStr) return "?"; const d=new Date(dateStr+"T00:00:00Z"); const now=new Date(); return Math.max(0, Math.floor((now-d)/86400000)); }
 function pct(n,d){ return d? Math.round((n/d)*100)+"% ("+n+"/"+d+")" : "0% (0/0)"; }
+function milestoneDotClass(status){
+  if(status==="done") return "green";
+  if(status==="delayed") return "red";
+  return "neutral"; // in_progress, planned
+}
+function milestoneDateText(m){
+  if(m.actual_date) return m.actual_date;
+  if(m.planned_date) return "estimado: "+m.planned_date;
+  return "sin fecha";
+}
 
 function renderProfile(){
   const sec = document.getElementById("view-profile");
@@ -901,6 +1067,119 @@ document.getElementById("confirm-ok").addEventListener("click", ()=>{
   toast("Borrador reiniciado. Los estados oficiales no cambiaron.");
 });
 
+/* ------------------------------ hito (detalle) -------------------------- */
+const milestoneDlg = document.getElementById("milestone-dialog");
+let milestoneLastFocus = null;
+const milestoneStatusLabels = {planned:"Planeado", in_progress:"En curso", done:"Hecho", delayed:"Retrasado"};
+const changeTypeLabels = {defined:"Definido", added:"Agregado", changed:"Cambiado", removed:"Quitado"};
+function openMilestone(mId, triggerEl){
+  const m = milestones.find(x=>x.id===mId); if(!m) return;
+  milestoneLastFocus = triggerEl || document.activeElement;
+  document.getElementById("milestone-title").textContent = `${m.id} · ${m.label}`;
+  const dateText = m.actual_date ? `Fecha real: ${m.actual_date}` : (m.planned_date ? `Fecha estimada: ${m.planned_date}` : "Sin fecha declarada");
+  document.getElementById("milestone-meta").textContent = `${milestoneStatusLabels[m.status]||m.status} · ${dateText}${m.owner_role? " · "+m.owner_role : ""}`;
+  document.getElementById("milestone-summary").textContent = m.summary;
+  const groups = {};
+  (m.changes||[]).forEach(c=>{ (groups[c.type]=groups[c.type]||[]).push(c); });
+  const order = ["defined","added","changed","removed"];
+  const changesHtml = order.filter(t=>groups[t]).map(t=>`
+    <div style="margin-bottom:12px">
+      <div style="font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-2);margin-bottom:4px">${changeTypeLabels[t]}</div>
+      <ul style="margin:0;padding-left:18px">
+        ${groups[t].map(c=>`<li style="margin-bottom:6px;font-size:13.5px">${esc(c.text)}${(c.source_refs&&c.source_refs.length)? `<div style="font-size:11.5px;color:var(--text-2)">Fuente: ${c.source_refs.map(r=>esc((r.tipo?r.tipo+": ":"")+r.referencia+(r.fecha?" ("+r.fecha+")":""))).join(" · ")}</div>`:""}</li>`).join("")}
+      </ul>
+    </div>`).join("");
+  document.getElementById("milestone-changes").innerHTML = changesHtml || `<p style="color:var(--text-2);font-size:13px">Sin cambios registrados.</p>`;
+  const relAreas = (m.related_area_ids||[]).map(id=>byId(id)).filter(Boolean);
+  const relatedEl = document.getElementById("milestone-related");
+  relatedEl.innerHTML = relAreas.length? `
+    <div style="margin-top:6px">
+      <div style="font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-2);margin-bottom:6px">Áreas relacionadas</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${relAreas.map(a=>`<button class="row-open" data-open-area="${a.id}">${a.id} · ${esc(a.title)}</button>`).join("")}</div>
+    </div>` : "";
+  relatedEl.querySelectorAll("[data-open-area]").forEach(b=>b.addEventListener("click", ()=>{ closeMilestone(); openDetail(b.dataset.openArea, b); }));
+  milestoneDlg.showModal();
+}
+function closeMilestone(){
+  if(milestoneDlg.open) milestoneDlg.close();
+  if(milestoneLastFocus && document.contains(milestoneLastFocus)) milestoneLastFocus.focus();
+}
+document.getElementById("milestone-close").addEventListener("click", closeMilestone);
+document.getElementById("milestone-close-x").addEventListener("click", closeMilestone);
+milestoneDlg.addEventListener("cancel", (e)=>{ e.preventDefault(); closeMilestone(); });
+
+/* --------------- ficha compartida: discrepancia / riesgo / bloqueo ------ */
+const itemDlg = document.getElementById("item-dialog");
+let itemLastFocus = null;
+function statRow(k,v){ return `<div><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`; }
+function itemP(label, text){ return text? `<p style="font-size:13.5px;margin:0 0 12px"><strong>${esc(label)}</strong><br>${esc(text)}</p>` : ""; }
+function openDiscrepancy(id, triggerEl){
+  const x = discrepancies.find(d=>d.id===id); if(!x) return;
+  itemLastFocus = triggerEl || document.activeElement;
+  document.getElementById("item-title").textContent = `${x.id} · Discrepancia documental`;
+  document.getElementById("item-meta").textContent = x.status;
+  document.getElementById("item-status").innerHTML = statRow("Estado", esc(x.status));
+  document.getElementById("item-body").innerHTML = itemP("Descripción completa", x.title) + itemP("Fuente / evidencia que la originó", x.scope);
+  itemDlg.showModal();
+  document.getElementById("item-close-x").focus();
+}
+function openRisk(id, triggerEl){
+  const r = risks.find(x=>x.id===id); if(!r) return;
+  itemLastFocus = triggerEl || document.activeElement;
+  document.getElementById("item-title").textContent = `${r.id} · Riesgo`;
+  document.getElementById("item-meta").textContent = `${riskLabels[r.category]||r.category}${r.owner_role? " · "+r.owner_role : ""}`;
+  document.getElementById("item-status").innerHTML = [
+    statRow("Severidad", severityBadge(r.severity)),
+    statRow("Estado", r.status==="open"?"Abierto":esc(r.status)),
+    statRow("Probabilidad", esc(r.probability)),
+    statRow("Impacto", esc(r.impact))
+  ].join("");
+  document.getElementById("item-body").innerHTML =
+    itemP("Descripción", r.description) +
+    itemP("Plan de mitigación", r.mitigation_plan) +
+    itemP("Plan de contingencia", r.contingency_plan) +
+    itemP("Revisión programada", r.review_by) +
+    itemP("Rol responsable", r.owner_role) +
+    itemP("Rol de seguimiento", r.follow_up_owner_role) +
+    (r.materialized_to_blocker_id? itemP("Materializado en bloqueo", r.materialized_to_blocker_id) : "") +
+    (r.related_decision_id? itemP("Decisión relacionada", r.related_decision_id) : "");
+  itemDlg.showModal();
+  document.getElementById("item-close-x").focus();
+}
+function openBlocker(id, triggerEl){
+  const b = blockers.find(x=>x.id===id); if(!b) return;
+  itemLastFocus = triggerEl || document.activeElement;
+  document.getElementById("item-title").textContent = `${b.id} · Bloqueo`;
+  document.getElementById("item-meta").textContent = `${riskLabels[b.category]||b.category}${b.owner_role? " · "+b.owner_role : ""}`;
+  document.getElementById("item-status").innerHTML = [
+    statRow("Severidad", severityBadge(b.severity)),
+    statRow("Estado", b.status==="open"?"Abierto":"Cerrado"),
+    statRow("Abierto hace", daysOpen(b.opened_at)+" días"),
+    statRow("Vence", b.due_at||"Sin fecha")
+  ].join("");
+  document.getElementById("item-body").innerHTML =
+    itemP("Causa", b.cause) +
+    itemP("Dependencia", b.dependency) +
+    itemP("Condición de cierre", b.closure_condition) +
+    itemP("Siguiente acción", b.next_action) +
+    itemP("Plan de mitigación", b.mitigation_plan) +
+    itemP("Plan de contingencia", b.contingency_plan) +
+    itemP("Rol responsable", b.owner_role) +
+    itemP("Rol de seguimiento", b.follow_up_owner_role) +
+    (b.escalated_to? itemP("Escalado a", b.escalated_to) : "") +
+    (b.related_decision_id? itemP("Decisión relacionada", b.related_decision_id) : "") +
+    (b.caused_by_risk_id? itemP("Originado por riesgo", b.caused_by_risk_id) : "");
+  itemDlg.showModal();
+  document.getElementById("item-close-x").focus();
+}
+function closeItem(){
+  if(itemDlg.open) itemDlg.close();
+  if(itemLastFocus && document.contains(itemLastFocus)) itemLastFocus.focus();
+}
+document.getElementById("item-close").addEventListener("click", closeItem);
+document.getElementById("item-close-x").addEventListener("click", closeItem);
+itemDlg.addEventListener("cancel", (e)=>{ e.preventDefault(); closeItem(); });
+
 /* ------------------------------- acciones ------------------------------ */
 document.getElementById("btn-example").addEventListener("click", ()=>{
   const anyFilled = fieldCountFilled() > 0;
@@ -951,7 +1230,8 @@ function buildExportV2(){
       fields:d.fields.map(f=>({key:f.key, label:f.label, question_ids:f.question_ids||[], draft_value:(draft[d.id]&&draft[d.id][f.key])||"", validated:false}))
     })),
     blockers: blockers,
-    risks: risks
+    risks: risks,
+    milestones: milestones
   };
 }
 document.getElementById("btn-download").addEventListener("click", ()=>{

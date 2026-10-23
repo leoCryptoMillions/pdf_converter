@@ -488,6 +488,94 @@ adicional en esta sesión: el árbol de trabajo está limpio y el estado del
 prototipo, corpus y bloqueadores es el mismo descrito en las secciones
 anteriores (validación 2026-10-08).
 
+## Enrutamiento needs_review de OCR (DEC-04) implementado — 2026-10-23
+
+A pedido directo del usuario ("procede con F0-05"), se implementó y verificó
+el enrutamiento `needs_review` que el 2026-10-20 solo se había aceptado como
+criterio (DEC-04), no como código. Antes de escribir nada se confirmó que
+`apps/convert.py` no ejecutaba OCR en absoluto — solo pdfplumber, con una
+advertencia `OCR_REQUIRED` para páginas sin texto — y que CLAUDE.md asigna
+la integración de OCR a F4, no a F0. Se le preguntó al usuario si prefería
+(a) redefinir el hallazgo como diferido a F4, (b) construir OCR mínimo ahora
+adelantando ese alcance, o (c) solo fijar el comportamiento actual con una
+prueba; eligió (b).
+
+**Qué se construyó:** `packages/converters/ocr.py` (nuevo), opt-in vía
+`extract_digital(..., ocr=True)` y la nueva bandera `--ocr` en
+`apps/convert.py` (antes inexistente; el flag por defecto es `False`, el
+comportamiento previo no cambia). Usa `pytesseract.image_to_data` (confianza
+real de palabra reportada por el propio motor, no fabricada) con `spa+eng`,
+PSM 3 — la configuración ya validada en `benchmarks/ocr_experiments.py` — y
+reutiliza la misma detección de binarios de Windows que
+`benchmarks/ocr_benchmark.py`. Enrutamiento: página 1 ("portada") siempre
+`needs_review=True` sin importar la confianza (heurística **posicional**,
+no visual — limitación conocida y documentada, no oculta: un documento con
+portada fuera de la página 1 se clasifica mal); el resto de páginas se
+enruta por confianza media >= 0.85, el mismo número que ya usa el ejemplo de
+`ContentWarning` en `CLAUDE.md` (no un umbral inventado para esta tarea). La
+corrección de texto plano se integra como `TextBlock` nuevo por página OCR'd
+y los nuevos códigos de advertencia (`OCR_COVER_PAGE_UNVALIDATED`,
+`OCR_LOW_CONFIDENCE`, `OCR_APPLIED`, `OCR_FAILED`) aparecen automáticamente
+en las hojas `_Warnings`/"Conversion warnings" de XLSX y DOCX sin tocar esos
+exportadores, porque ya recorren `page.warnings`.
+
+**Verificación ejecutada (no autoatestada):** Tesseract 5.4.0 y Poppler 25.07
+sí están disponibles en esta sesión (no lo estaban el 2026-10-20). Corrida
+real de `extract_digital(ocr=True)` contra
+`benchmarks/corpus/files/manualcargadorBYD.pdf` páginas 1 y 3 — la muestra
+exacta de DEC-04: página 1 con confianza real 92% quedó `needs_review=True`
+de todas formas (confirma que el piso no aplica a portada); página 3 con 95%
+quedó `needs_review=False`. El texto con acentos se verificó correcto por
+code point (`ord()`); una inspección visual inicial en terminal sugería
+corrupción UTF-8 y resultó ser solo mal renderizado por la consola, no un
+defecto real del dato. 5 pruebas nuevas en `tests/unit/test_ocr_routing.py`
+(incluida la corrida real anterior, sin mocks), todas pasan. Suite completa:
+43 passed, 3 failed — los 3 fallos dependen de `python-docx` no instalado en
+el intérprete que usa `subprocess` en esos tests, preexistente a esta sesión
+(ya documentado arriba, no causado por este cambio).
+
+**Qué NO cambió:** la métrica cruda de CER de portada (3.723%) sigue igual;
+DEC-04 ya había aceptado no perseguirla. `scanned_difficult` en general
+(RSK-03) sigue sin el mismo tratamiento de calidad — el mecanismo de
+enrutamiento ya es genérico por página, pero nadie midió su CER todavía.
+
+Dashboard de preparación y brechas actualizado en la misma sesión: F0-05
+pasa a `implementation_status=implemented`, `verification_status=passed`;
+BLK-04 y DEC-04 actualizados para no apuntar a un pendiente ya resuelto; nota
+añadida a RSK-03. Verificado en navegador real (servidor local, no
+`file://` reabierto): sin errores de consola, ficha de F0-05 y RSK-03
+renderizan correctamente. Detalle completo en
+`prototipos/preparacion-brechas/seguimiento.md` (entrada 2026-10-23).
+
+## Interfaz web local de conveniencia — 2026-10-23
+
+A pedido del usuario ("genera un front end en web para que sea fácil para el
+usuario"), se preguntó explícitamente el alcance antes de construir, por la
+misma disciplina de fases aplicada a F0-05: ¿wrapper mínimo local de un solo
+usuario, o el primer endpoint real de F1 sobre `apps/api/`? Eligió el
+wrapper mínimo.
+
+Se construyó `apps/local_review_ui.py`: un servidor FastAPI pensado para
+`127.0.0.1`, sin cuentas, sin base de datos, sin cola, que reutiliza tal
+cual `packages/converters/digital.py` y `packages/exporters/` — no es una
+reimplementación, es el mismo motor del CLI con un formulario HTML encima.
+Deliberadamente no toca `apps/api/` (reservado para F1) para no generar una
+falsa señal de avance en esa área; se dejó una nota explícita en el
+dashboard (F0-06) aclarando la distinción.
+
+Verificado con pruebas reales (`tests/unit/test_local_review_ui.py`, 4
+passed, sin mocks: sube un PDF, descarga el XLSX, valida que es un zip
+correcto; rechaza no-PDF; rechaza traversal de ruta en `/download`), con el
+servidor corriendo de verdad (`python -m apps.local_review_ui`) probado en
+un navegador real, y con una conversión de extremo a extremo por `curl`
+(subida → descarga → `openpyxl` confirma la tabla correcta). Suite completa:
+50 passed. Dependencias nuevas instaladas en el entorno y fijadas en
+`requirements-prototype.txt`: `fastapi`, `uvicorn`, `python-multipart`
+(`python-docx` también se instaló, antes faltaba y causaba 3 fallos
+preexistentes de la suite relacionados con DOCX, ya resueltos).
+
+Pendiente, no bloqueante: sin borrado/TTL de `.generated/web_ui/`.
+
 ## Calendario anterior (referencia histórica)
 
 **Fecha Planeada:** 2026-10-14 (después de completar P01)  

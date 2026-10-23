@@ -4,3 +4,12 @@ pydantic==2.13.5
 openpyxl==3.1.5
 python-docx==1.2.0
 reportlab==5.0.1
+# Optional: only required for --ocr. Needs Tesseract 5.x and Poppler system
+# binaries too; see packages/converters/ocr.py for how they are located.
+pytesseract==0.3.10
+pdf2image==1.16.3
+# Optional: only required for apps/local_review_ui.py (local single-user web
+# wrapper around this CLI; not the F1 web app).
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.32

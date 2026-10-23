@@ -24,6 +24,24 @@ Toda conversión termina con `needs_review`: extraer contenido no garantiza
 que coincida con lo visible en el PDF. Los artefactos de `.generated/`
 permanecen locales y no están sujetos todavía a borrado automático.
 
+### Interfaz web local (no es el flujo web de F1)
+
+`apps/local_review_ui.py` (añadido 2026-10-23) es un wrapper mínimo de un
+solo usuario sobre este mismo CLI, para no tener que escribir flags a mano.
+Es deliberadamente distinto del "flujo web con usuarios, trabajos, storage y
+cola" de F1 mencionado arriba: sin cuentas, sin base de datos, sin cola, un
+documento a la vez, pensado para correr en `127.0.0.1` en tu propia máquina.
+
+```powershell
+python -m apps.local_review_ui
+# abre http://127.0.0.1:8420/
+```
+
+Sube un PDF, elige formato(s) y si quieres `--ocr`, y descarga el resultado.
+Los artefactos quedan en `.generated/web_ui/<id>/`, sin borrado automático
+(igual que el resto de `.generated/`). Pruebas reales (sin mocks, sube un
+PDF y descarga el resultado) en `tests/unit/test_local_review_ui.py`.
+
 XLSX crea una hoja por tabla, `_Original` con texto original por celda,
 `_Origin` con hash/motor/página/rectángulo y `_Warnings` con incidencias.
 Por defecto conserva todas las celdas como texto, incluidas fechas y códigos.
@@ -46,8 +64,17 @@ Un importe que se parte entre líneas queda como texto para revisión.
 DOCX contiene líneas de texto y tablas editables en orden geométrico
 aproximado. No reconstruye imágenes, firmas, columnas ni estilos originales;
 las advertencias se agregan en una página final. TXT conserva la extracción
-digital sin formato. Escaneos sin texto producen advertencia `OCR_REQUIRED`;
-el CLI no ejecuta OCR ni debe confundirse con el benchmark OCR.
+digital sin formato. Escaneos sin texto producen advertencia `OCR_REQUIRED`
+por defecto; el CLI no ejecuta OCR salvo que se pase `--ocr` explícitamente
+(añadido 2026-10-23, no debe confundirse con el benchmark OCR independiente
+de `benchmarks/ocr_benchmark.py`). Con `--ocr`, cada página sin texto
+extraíble se procesa con Tesseract (`spa+eng`, PSM 3) vía
+`packages/converters/ocr.py`, que aplica el enrutamiento `needs_review` de
+DEC-04: la página 1 ("portada", heurística posicional, no visual) siempre
+sale `needs_review` sin importar la confianza observada; el resto se enruta
+por la confianza media de palabra que reporta el propio Tesseract (piso
+0.85). Verificado con OCR real contra `benchmarks/corpus/files/
+manualcargadorBYD.pdf` páginas 1 y 3 (ver `docs/AVANCE.md`).
 
 ## Evidencia de esta sesión
 

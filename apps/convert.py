@@ -15,9 +15,11 @@ def main() -> None:
     parser.add_argument("--formats", nargs="+", choices=["xlsx", "docx", "txt"], default=["xlsx"])
     parser.add_argument("--types", type=Path, help="JSON table_id -> zero-based column -> numeric type")
     parser.add_argument("--pages", nargs="+", type=int, help="1-based source pages; defaults to all pages")
+    parser.add_argument("--ocr", action="store_true",
+                         help="Run Tesseract on pages with no extractable text (off by default; see docs/PROTOTIPO_F0.md)")
     args = parser.parse_args()
     try:
-        document = extract_digital(args.source, page_numbers=args.pages)
+        document = extract_digital(args.source, page_numbers=args.pages, ocr=args.ocr)
         types = {}
         if args.types:
             types = {key: {int(col): value for col, value in columns.items()}

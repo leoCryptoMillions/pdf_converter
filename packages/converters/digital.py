@@ -1,4 +1,9 @@
-"""Bounded local F0 extraction; no OCR and no invented quality scores."""
+"""Bounded local F0 extraction; no invented quality scores.
+
+OCR is off by default (see docs/PROTOTIPO_F0.md) and only runs for pages
+with no extractable digital text when `ocr=True` is passed; routing to
+needs_review then follows DEC-04 (packages/converters/ocr.py).
+"""
 from __future__ import annotations
 
 import hashlib
@@ -21,7 +26,8 @@ def warning(code: str, message: str, page: int) -> ContentWarning:
 
 
 def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
-                    max_pages: int = 100, page_numbers: list[int] | None = None) -> DocumentIR:
+                    max_pages: int = 100, page_numbers: list[int] | None = None,
+                    ocr: bool = False) -> DocumentIR:
     source = Path(source)
     if source.stat().st_size > max_bytes:
         raise PDFValidationError("PDF exceeds size limit")
@@ -60,7 +66,25 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                             metadata={"coordinate_system": "top-left, PDF points",
                                       "text_coverage_measured": False})
                 if not text.strip():
-                    page.warnings.append(warning("OCR_REQUIRED", "Page has no extractable text; OCR was not run.", number))
+                    if ocr:
+                        from packages.converters.ocr import OCRUnavailableError, classify_ocr_result, ocr_page
+                        try:
+                            ocr_text, confidence = ocr_page(source, number)
+                        except OCRUnavailableError as exc:
+                            page.warnings.append(warning("OCR_FAILED", f"OCR could not run: {exc}", number))
+                        else:
+                            page.extracted_text = ocr_text
+                            needs_review, ocr_warning = classify_ocr_result(number, confidence)
+                            page.metadata["ocr_mean_confidence"] = confidence
+                            page.metadata["ocr_needs_review"] = needs_review
+                            page.warnings.append(ocr_warning)
+                            if ocr_text.strip():
+                                page.blocks.append(TextBlock(
+                                    id=f"p{number}_ocr", content=ocr_text, page_number=number,
+                                    reading_order=1, extraction_method="ocr", confidence=confidence,
+                                    location=Rectangle(x0=0, y0=0, x1=raw.width, y1=raw.height)))
+                    else:
+                        page.warnings.append(warning("OCR_REQUIRED", "Page has no extractable text; OCR was not run.", number))
                 if raw.images:
                     page.warnings.append(warning("IMAGES_NOT_EXTRACTED", "Embedded images are not exported by this F0 prototype.", number))
                 for index, found in enumerate(raw.find_tables(), 1):
@@ -100,10 +124,11 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
     document = DocumentIR(document_id=digest.hexdigest()[:32], source_filename=source.name,
                       source_hash=digest.hexdigest(), page_count=total_pages, pages=pages,
                       engines_used=[EngineConfig(engine_name="pdfplumber", engine_version=pdfplumber.__version__)],
-                      extraction_options={"ocr": False, "table_strategy": "lines", "max_pages": max_pages,
+                      extraction_options={"ocr": ocr, "table_strategy": "lines", "max_pages": max_pages,
                                           "selected_pages": sorted(selected)},
                       has_meaningful_content=any(p.extracted_text.strip() for p in pages),
                       total_processing_time_seconds=time.monotonic() - started,
+                      ocr_enabled=ocr, ocr_languages=["spa", "eng"] if ocr else [],
                       warnings=[warning("UNVALIDATED_EXTRACTION", "Extraction quality has not been verified against a reference.", 1)])
     from packages.converters.continuity import link_table_continuations
     link_table_continuations(document)
