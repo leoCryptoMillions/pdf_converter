@@ -220,6 +220,18 @@ solas el criterio representativo del área. F0-09/F0-11 permanecen abiertos.
 No se actualiza el snapshot global ni se presenta F1 como implementado.
 El PDF del usuario y sus vistas no se incorporan al corpus ni a Git.
 
+## Requisitos Word guardados (2026-10-26)
+
+Autorización: «también guarda estos cambios en los requerimientos del proyecto».
+
+| Fecha | Tarea | Áreas afectadas | Fuentes/evidencia | Verificación | Decisión pendiente |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-26 | Incorporar la mejora Word a los requisitos y al alcance 1.1.0 | F0-04; referencia de F0-11 | PLAN_APP_CONVERSION_PDF_v1.0.md §11.1; docs/ALCANCE.md; ADR 0005. RF-DOCX-01 a RF-DOCX-08 y RNF-DOCX-01 con aceptación y límites. SRC-19/20. | Revisión documental contra la implementación y ADR 0005; enlaces y JSON revisados. El recorrido de navegador comprueba fichas, cancelado/guardado y exportación. No se repite la suite Python por este cambio documental; la evidencia de 81 pruebas pertenece a 1e43e00. | Validar tres diseños reales adjudicados; Gate F0 pendiente. |
+
+Sin impacto en el cierre de las brechas: se formaliza el alcance ya
+autorizado, sin modificar el motor ni los estados del área.
+`verification_coverage` **18% (2/11)** y `decision_coverage` **27% (3/11)**.
+
 ## Guardado de la sesión (2026-10-23)
 
 Pedido del usuario: «listo, guarda todo». Código, mascota, pruebas y

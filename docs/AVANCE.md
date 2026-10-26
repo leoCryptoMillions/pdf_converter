@@ -698,6 +698,23 @@ parcial y pendiente de validación representativa; F0-09/F0-11 siguen abiertos.
 Dashboard, fuentes y seguimiento se concilian con este alcance, sin cambiar
 sus indicadores (verificación 18%, decisiones 27%).
 
+## Requisitos Word incorporados al plan y alcance — 2026-10-26
+
+Pedido del usuario: «también guarda estos cambios en los requerimientos del
+proyecto». El plan y `docs/ALCANCE.md` pasan a revisión 1.1.0; se conserva
+el nombre del archivo del plan para mantener los enlaces existentes.
+§11.1 centraliza RF-DOCX-01 a RF-DOCX-08 y RNF-DOCX-01: contenido editable,
+distribución/estilos, imágenes incorporadas, tablas y degradaciones, fuentes,
+OCR, notas/anexo opcional, procedencia/IR y límites de recursos. Se incluyen
+comprobaciones de aceptación y validación pendiente en tres diseños reales.
+
+Se enlazan los requisitos desde F0-04 y las fuentes del dashboard. Cambio
+documental: no modifica el convertidor ni declara una validación nueva de
+calidad. Se mantiene la evidencia del commit `1e43e00` (81 pruebas y revisión
+Word/Chromium), sin presentarla como una nueva ejecución de pruebas.
+F0-04 sigue partial/pending; Gate F0 pendiente. Indicadores sin cambios:
+verificación 18% (2/11), decisiones 27% (3/11).
+
 ## Calendario anterior (referencia histórica)
 
 **Fecha Planeada:** 2026-10-14 (después de completar P01)  

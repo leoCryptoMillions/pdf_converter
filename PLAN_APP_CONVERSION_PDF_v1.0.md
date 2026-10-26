@@ -1,9 +1,12 @@
 # Plan de trabajo: aplicación de conversión PDF a Excel, Word y otros formatos
 
-Versión: 1.0.0  
-Fecha: 2026-10-07  
+Versión: 1.1.0 (se conserva el nombre del archivo para mantener sus enlaces)
+
+Fecha base: 2026-10-07 · Revisión de requisitos Word: 2026-10-26
+
 Idioma: español  
-Estado: plan para ejecutar; no existe todavía una implementación ni un benchmark realizado.  
+Estado: plan de producto con prototipo local y mediciones F0; Gate F0 pendiente. El alcance implementado se registra en `docs/AVANCE.md`.
+
 Destinatarios: cualquier IA de desarrollo, equipo humano, responsable de producto y revisores técnicos.
 
 ## 1. Objetivo y decisión principal
@@ -28,7 +31,7 @@ Se asume una app web para escritorio y móvil, interfaz en español, usuarios au
 | Tiempo máximo | 10 minutos por trabajo | Al medir OCR y rutas complejas |
 | Retención de contenido | Hasta 24 horas, con borrado anticipado | Antes de piloto; configurable por organización |
 | OCR | Español e inglés; CPU inicialmente | Si calidad o costo justifican otro motor/GPU |
-| Word | Contenido editable y estructura; fidelidad aproximada | F0 determina alcance visual publicable |
+| Word | Texto editable, estructura, imágenes, estilos y distribución aproximada del PDF (§11.1) | F0 determina clases y alcance visual publicables |
 | Excel | Tablas extraídas, no una imagen por hoja | F0 determina clases de tabla soportadas |
 
 Estos son límites propuestos del producto, no características intrínsecas de FastAPI. Preguntar las decisiones que bloqueen una fase; continuar el trabajo independiente. No interpretar este plan como autorización para contratar servicios, gastar dinero, publicar documentos reales o desplegar en producción. Preparar primero un resultado revisable.
@@ -83,7 +86,7 @@ No elegir FastAPI por la idea de que `async` acelera OCR. La API gestiona solici
 | Salida | Promesa del MVP | Limitación que debe mostrarse |
 | --- | --- | --- |
 | XLSX | Tablas con filas, columnas, tipos y procedencia | No recupera fórmulas originales ni datos ocultos del libro que generó el PDF |
-| DOCX | Párrafos, títulos, tablas e imágenes editables cuando corresponda | Saltos, fuentes y distribución pueden diferir del PDF |
+| DOCX | Texto y tablas editables, imágenes incorporadas y conservación aproximada de estilos y distribución (§11.1) | Gráficos pueden ser PNG; fuentes, edición y visor pueden alterar saltos y posiciones |
 | CSV | Una tabla por archivo; ZIP si hay varias | No conserva estilos, imágenes ni varias hojas |
 | TXT | Texto en orden de lectura estimado | Pierde formato y puede fallar en columnas complejas |
 | Markdown | Texto y tablas compatibles, imágenes referenciadas o empaquetadas | No reproduce posicionamiento exacto |
@@ -176,9 +179,42 @@ El modo contable/bancario es una extensión posterior: validar sumas o saldos cu
 
 DOCX editable: reconstruir títulos, párrafos, listas, tablas e imágenes con estilos coherentes, orden de lectura, orientación y márgenes estimados. Manejar encabezados/pies sólo cuando sean reconocibles. Mantener columnas, saltos, notas y tablas complejas como capacidades evaluadas; advertir degradaciones.
 
-DOCX de apariencia: explorar sólo después del benchmark; registrar cuánto se sacrifica la edición. Para documentos complejos que no superen criterios, restringir soporte o seleccionar un SDK con evaluación. No usar LibreOffice como supuesto convertidor PDF a Word de alta fidelidad; puede emplearse para renderizar el DOCX generado y compararlo.
+La reconstrucción visual editable forma parte del prototipo local desde ADR 0005 y debe cumplir §11.1. Registrar las limitaciones de edición en marcos posicionados. Para documentos complejos que no superen criterios, restringir soporte o seleccionar un SDK con evaluación. No usar LibreOffice como supuesto convertidor PDF a Word de alta fidelidad; puede emplearse para renderizar el DOCX generado y compararlo.
 
 CSV: un archivo por tabla, codificación UTF-8, delimitador elegido y escaping correcto. XLSX es preferible cuando importan tipos. Probar inyección de fórmulas en CSV y documentar que algunos programas pueden reinterpretar valores al reabrirlos. TXT/MD/JSON deben preservar procedencia en metadata complementaria. HTML, si se agrega, necesita sanitización y política de recursos. Imágenes: límites por dimensiones, DPI, píxeles totales y tamaño final; empaquetar con nombres generados por el servidor.
+
+### 11.1. Requisitos verificables de conversión a Word
+
+Revisión autorizada el 2026-10-26: generar un Word lo más parecido posible
+al PDF original conservando texto editable, imágenes y formato. Estos
+requisitos amplían el alcance Word del prototipo; su implementación inicial
+está descrita en [ADR 0005](docs/adr/0005-word-layout.md). La aprobación del
+requisito no implica la aprobación del Gate F0 ni soporte general de cualquier PDF.
+
+| ID | Requisito | Comprobación de aceptación |
+| --- | --- | --- |
+| RF-DOCX-01 | Conservar el texto digital como texto editable, con su contenido, símbolos e identificadores. Mantener el original sin modificaciones. | Comparar con la referencia; editar un fragmento y una celda, guardar y reabrir sin corrupción ni cambios silenciosos de datos. Una captura de página no satisface este requisito. |
+| RF-DOCX-02 | Aproximar dimensiones y orientación de página, posiciones, distribución en columnas, tamaños de letra, colores, negritas y cursivas observados. | Renderizar el DOCX en el visor declarado y compararlo con páginas anotadas del PDF; revisar orden, separación, legibilidad y ausencia de solapamientos que oculten contenido. |
+| RF-DOCX-03 | Incorporar imágenes y gráficos conservables dentro del DOCX, respetando proporción y posición aproximada. Se admite rasterizar gráficos vectoriales. | Abrir el Word sin acceso al PDF ni a recursos externos; comprobar las imágenes y que la capa gráfica no duplique el texto digital editable. |
+| RF-DOCX-04 | Mantener tablas sencillas como tablas editables con anchos y combinaciones detectados. Si un panel complejo se representa como texto posicionado, informar esa degradación. | Revisar celdas, dimensiones y spans en los casos soportados; editar y reabrir una tabla. Comprobar la advertencia cuando los campos ya no son celdas de Word. |
+| RF-DOCX-05 | Informar sustituciones explícitas de fuentes, texto girado y recursos que no se pudieron conservar. | Notas comprensibles en resultados y detalles en el IR; declarar fuentes/visor de la evaluación. No prometer distribución idéntica después de editar o con fuentes no disponibles. |
+| RF-DOCX-06 | Distinguir texto digital, OCR y páginas conservadas únicamente como imagen. Evitar duplicar el texto OCR sobre el fondo escaneado. | Sin OCR, señalar las páginas sin texto editable. Con OCR sin geometría validada, indicar distribución aproximada y conservar las reglas de revisión de OCR. |
+| RF-DOCX-07 | Mostrar las advertencias en resultados e IR. Ofrecer un anexo de notas al Word, desactivado por defecto, mediante web y CLI. | Verificar ambas opciones y la conservación de la elección ante errores; informar que el anexo agrega páginas. Desactivar el anexo no elimina las advertencias de resultados/IR. |
+| RF-DOCX-08 | Conservar procedencia, motores/versiones y opciones; mantener el IR autocontenido y compatible con versiones anteriores admitidas. | Exportar desde un IR serializado sin acceso al PDF; verificar recursos incorporados y advertencias producidas durante la exportación. |
+| RNF-DOCX-01 | Limitar píxeles, cantidad de imágenes y bytes de recursos; preservar el texto disponible e informar cuando un recurso visual no puede incorporarse. | Probar presupuestos excedidos y fallos del renderizador sin presentar la salida parcial como una reproducción completa. El DOCX no debe cargar imágenes desde URL o rutas externas. |
+
+La referencia vigente de recursos del prototipo es: 8 millones de píxeles
+por render, máximo 180 DPI, 100 imágenes por página, 12 MiB por PNG y
+48 MiB de PNG por documento antes de base64. Son límites técnicos revisables
+con evidencia, adicionales al límite de PDF de 25 MB y 100 páginas.
+
+La aceptación de producto requiere referencias adjudicadas en al menos
+tres diseños reales distintos, conservación de contenido, prueba de
+edición/guardado/reapertura y comparación visual en cada visor declarado.
+Se mantienen las metas candidatas de §15; las pruebas sintéticas y una
+revisión local no sustituyen esa evaluación. Cada capacidad no verificada
+debe aparecer como pendiente o limitada en el alcance y en la interfaz.
+La reproducción de una firma o sello es visual; no valida firmas digitales.
 
 ## 12. Contratos API y datos
 
@@ -366,7 +402,7 @@ Crear y mantener `docs/AVANCE.md` con:
 
 ```yaml
 proyecto: conversion-pdf
-plan_version: 1.0.0
+plan_version: 1.1.0
 actualizado: FECHA_REAL
 fase_actual: F0
 estado: no_iniciado

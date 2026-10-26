@@ -1,8 +1,14 @@
-# Alcance del Proyecto - PDF Converter v1.0
+# Alcance del Proyecto - PDF Converter v1.1
 
-**Versión:** 1.0.0  
-**Fecha:** 2026-10-07  
-**Estado:** Diseño - En espera de Gate F0
+**Versión:** 1.1.0
+
+**Fecha base:** 2026-10-07 · Revisión Word: 2026-10-26
+
+**Estado:** Prototipo local F0; Gate F0 pendiente
+
+Las tablas siguientes describen el alcance objetivo del MVP. Su inclusión
+no acredita que una función esté implementada o aprobada. El avance real
+se registra en [AVANCE.md](AVANCE.md).
 
 ## Alcance de MVP
 
@@ -11,7 +17,7 @@
 | Formato | MVP | Alcance Inicial | Limitaciones |
 |---------|-----|-----------------|---------------|
 | **XLSX** | ✓ Sí | Tablas extraídas con tipos | No recupera fórmulas originales |
-| **DOCX** | ✓ Sí | Párrafos, títulos, tablas, imágenes | Fidelidad aproximada en layouts |
+| **DOCX** | ✓ Sí | Texto y tablas editables, imágenes, estilos y distribución aproximada | Fuentes, edición y visor pueden alterar el diseño; gráficos como PNG y paneles complejos con advertencia |
 | **CSV** | ✓ Sí | Una tabla por archivo | No conserva estilos |
 | **TXT** | ✓ Sí | Texto en orden de lectura | Pierde formato |
 | **Markdown** | ✓ Sí | Texto y tablas | No reproduce posicionamiento |
@@ -111,6 +117,26 @@
 - Imágenes embebidas correctamente
 - Apertura sin reparación
 
+La conservación visual debe incluir dimensiones/orientación, posiciones,
+tamaños de letra, colores, negrita/cursiva e imágenes cuando puedan
+recuperarse. Las tablas sencillas mantienen celdas editables y combinaciones
+detectadas; un panel complejo puede conservarse como texto posicionado con
+advertencia. Los marcos favorecen la apariencia y limitan la edición como
+flujo continuo. Las fuentes sustituidas y los recursos omitidos se informan.
+
+Las advertencias permanecen en resultados e IR. El anexo Word es opcional,
+desactivado por defecto, y agrega páginas al documento. Una página escaneada
+conservada como imagen no se considera texto editable; el OCR sin geometría
+validada conserva un orden aproximado y sus notas de revisión.
+
+Estos requisitos se identifican como **RF-DOCX-01 a RF-DOCX-08** y
+**RNF-DOCX-01** en el [plan, §11.1](../PLAN_APP_CONVERSION_PDF_v1.0.md#111-requisitos-verificables-de-conversión-a-word),
+que centraliza los criterios de aceptación y los presupuestos de recursos.
+La decisión técnica inicial es [ADR 0005](adr/0005-word-layout.md).
+Se requiere validar al menos tres diseños reales con referencias
+adjudicadas y comparación visual. La implementación local no cierra esa
+validación ni el Gate F0.
+
 ### Documentos Escaneados (F4)
 - CER <= 2% en OCR limpio
 - Datos críticos >= 99.5%
@@ -136,7 +162,7 @@
 
 | Decisión | Opción A | Opción B | Estado |
 |----------|----------|----------|--------|
-| Word: edición vs apariencia | Priorizar edición | Priorizar apariencia | F0 gate |
+| Word: edición y apariencia | Texto editable con diseño aproximado (§11.1) | Ampliar clases/visores solo con evaluación | Alcance local aceptado en ADR 0005; validación representativa pendiente |
 | Batch processing | MVP (10 files) | F5 | Planificado F5 |
 | Accesibilidad WCAG | A (basic) | AA (enhanced) | F5+ |
 | Lotes con fallos parciales | Permitir | Rechazar | TBD |

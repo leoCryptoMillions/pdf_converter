@@ -71,10 +71,12 @@ Core Design Principle: Preserve original content and conversion provenance. Neve
   - Use Decimal type for currency; explicit text type for RFC/CLABE/codes
   - Per-table sheet naming; Origin + Warnings sheets
 - **Word**: python-docx 0.8.11+
-  - Reconstructs structure only (Heading, Normal, Table styles)
-  - Text preservation over visual fidelity
+  - Tested local subset uses python-docx 1.2.0; see requirements-prototype.txt
+  - Preserve editable text with measured typography, page geometry and images; requirements RF-DOCX-01 through RF-DOCX-08 and RNF-DOCX-01 are in PLAN_APP_CONVERSION_PDF_v1.0.md §11.1
+  - See docs/adr/0005-word-layout.md for the positioned Word reconstruction and its limits; representative F0 validation remains pending
   - No embedded scripts, macros, or external links
-  - Images as referenced resources only; sanitize before embedding
+  - Embed sanitized, self-contained PNG resources; graphics must not duplicate digital text
+  - Keep warnings in results/IR; the Word warnings annex is optional and off by default
 - **PowerPoint**: python-pptx 0.6.23 (foundation only; not primary MVP path)
 
 ### Frontend
