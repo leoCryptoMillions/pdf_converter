@@ -170,10 +170,28 @@ precisión superior a 15 dígitos y valores fuera del rango numérico se
 conservan como texto. El original siempre se conserva en `_Original`.
 Un importe que se parte entre líneas queda como texto para revisión.
 
-DOCX contiene líneas de texto y tablas editables en orden geométrico
-aproximado. No reconstruye imágenes, firmas, columnas ni estilos originales;
-las advertencias se agregan en una página final. TXT conserva la extracción
-digital sin formato. Escaneos sin texto producen advertencia `OCR_REQUIRED`
+Desde 2026-10-26, DOCX conserva texto editable con posiciones, tamaño de
+página, tamaños de letra, colores, negritas y cursivas observados. Incorpora
+imágenes y una capa gráfica sin el texto digital, como PNG dentro del Word.
+Las tablas sencillas mantienen anchos y combinaciones detectadas; los
+paneles complejos usan texto posicionado y generan una nota de revisión.
+La fidelidad es aproximada: las fuentes, los visores y las ediciones pueden
+cambiar la distribución. Los marcos permiten editar fragmentos, aunque no
+ofrecen el mismo flujo continuo que un Word escrito desde cero.
+
+Las notas se conservan en los resultados y en `document.ir.json`. Para
+agregarlas como anexo al Word, usar `--docx-warnings` o marcar «Anexar notas
+de revisión al Word». La opción está desactivada por defecto para no añadir
+páginas al documento convertido. Ver alcance, límites de recursos y
+decisión técnica en [ADR 0005](adr/0005-word-layout.md).
+
+La extracción visual solo se activa desde CLI/web cuando se solicita DOCX.
+`extract_digital` también admite `preserve_layout=False` para rutas que solo
+necesitan texto/tablas. El IR 1.1.0 incorpora estilos y recursos autocontenidos
+y sigue admitiendo documentos 1.0.0. El subconjunto probado fija
+`pypdfium2==5.14.0`, ya instalado en este entorno.
+
+TXT conserva la extracción digital sin formato. Escaneos sin texto producen advertencia `OCR_REQUIRED`
 por defecto; el CLI no ejecuta OCR salvo que se pase `--ocr` explícitamente
 (añadido 2026-10-23, no debe confundirse con el benchmark OCR independiente
 de `benchmarks/ocr_benchmark.py`). Con `--ocr`, cada página sin texto

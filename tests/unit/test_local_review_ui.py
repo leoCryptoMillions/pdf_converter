@@ -144,3 +144,28 @@ def test_converter_exposes_context_help_with_native_links():
     assert 'href="/ayuda#topic-convert"' in response.text
     assert 'href="/ayuda#topic-remove"' in response.text
     assert 'id="context-dialog"' in response.text
+
+
+@pytest.mark.parametrize('annex', [False, True])
+def test_word_download_layout_notes_and_optional_annex_are_consistent(annex):
+    import re
+    from io import BytesIO
+    from docx import Document
+    with CORPUS_SAMPLE.open('rb') as handle:
+        response = client.post('/convert', files={'file': ('sample.pdf', handle, 'application/pdf')},
+            data={'formats': ['docx'], 'docx_warnings': '1' if annex else ''})
+    assert response.status_code == 200
+    links = re.findall(r'href="(/download/[a-f0-9]+/[^"]+)"', response.text)
+    word = Document(BytesIO(client.get(next(l for l in links if l.endswith('result.docx'))).content))
+    assert any(p.text == 'Conversion warnings' for p in word.paragraphs) is annex
+    data = client.get(next(l for l in links if l.endswith('document.ir.json'))).json()
+    assert data['extraction_options']['preserve_layout'] is True
+    assert any(w['code'] == 'DOCX_LAYOUT_APPROXIMATE' for p in data['pages'] for w in p['warnings'])
+    assert 'no reconstruye el diseño exacto ni las imágenes' not in response.text
+
+
+def test_error_preserves_word_annex_preference():
+    response = client.post('/convert', files={'file': ('source.pdf', b'%PDF-', 'application/pdf')},
+        data={'formats': ['docx'], 'pages': '0', 'docx_warnings': '1'})
+    assert response.status_code == 400
+    assert 'name="docx_warnings" value="1" checked' in response.text

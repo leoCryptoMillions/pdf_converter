@@ -17,24 +17,28 @@ def main() -> None:
     parser.add_argument("--pages", nargs="+", type=int, help="1-based source pages; defaults to all pages")
     parser.add_argument("--ocr", action="store_true",
                          help="Run Tesseract on pages with no extractable text (off by default; see docs/PROTOTIPO_F0.md)")
+    parser.add_argument("--docx-warnings", action="store_true",
+                        help="Append conversion warnings to Word (changes output pagination)")
     args = parser.parse_args()
     try:
-        document = extract_digital(args.source, page_numbers=args.pages, ocr=args.ocr)
+        document = extract_digital(args.source, page_numbers=args.pages, ocr=args.ocr,
+                                   preserve_layout="docx" in args.formats)
         types = {}
         if args.types:
             types = {key: {int(col): value for col, value in columns.items()}
                      for key, columns in json.loads(args.types.read_text(encoding="utf-8")).items()}
-        artifacts = {"document.ir.json": document.model_dump_json(indent=2).encode("utf-8")}
+        artifacts = {}
         for fmt in set(args.formats):
             if fmt == "xlsx":
                 from packages.exporters.xlsx import export_xlsx
                 data = export_xlsx(document, numeric_columns=types)
             elif fmt == "docx":
                 from packages.exporters.docx import export_docx
-                data = export_docx(document)
+                data = export_docx(document, include_warnings=args.docx_warnings)
             else:
                 data = document.get_all_text().encode("utf-8")
             artifacts[f"result.{fmt}"] = data
+        artifacts["document.ir.json"] = document.model_dump_json(indent=2).encode("utf-8")
         # Never overwrite an earlier conversion; assemble before publishing.
         args.output.mkdir(parents=True, exist_ok=False)
         for name, data in artifacts.items():

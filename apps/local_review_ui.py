@@ -32,7 +32,7 @@ ALLOWED_FORMATS = {"xlsx", "docx", "txt"}
 ASSET_ROOT = Path(__file__).with_name("local_review_assets")
 FORMAT_INFO = {
     "xlsx": ("Excel", "Tablas y celdas"),
-    "docx": ("Word", "Texto y tablas"),
+    "docx": ("Word", "Diseño e imágenes"),
     "txt": ("Texto", "Sin formato"),
 }
 
@@ -89,7 +89,7 @@ LOCAL_NOTE = f"""
 
 
 def render_form(error: str | None = None, *, selected_formats: set[str] | None = None,
-                pages: str = "", ocr: bool = False) -> str:
+                pages: str = "", ocr: bool = False, docx_warnings: bool = False) -> str:
     selected = {"xlsx", "txt"} if selected_formats is None else selected_formats
     error_html = (f'<div class="error-banner" role="alert" tabindex="-1">'
                   f'<strong>No pudimos convertir el archivo</strong><p>{html.escape(error)}</p>'
@@ -140,6 +140,11 @@ def render_form(error: str | None = None, *, selected_formats: set[str] | None =
       </div>
       <p class="field-error" id="formats-error" role="alert" hidden></p>
       <div class="field-help">Sobre los formatos {help_link('formats')}</div>
+      <label class="ocr-option" for="docx-warnings"><input type="checkbox" id="docx-warnings" name="docx_warnings" value="1" {"checked" if docx_warnings else ""}>
+        <span><strong>Anexar notas de revisión al Word</strong>
+          <span class="hint">Opcional, si eliges Word. Agrega páginas al final; las notas siempre están disponibles en los resultados.</span></span>
+      </label>
+      <div class="field-help">Sobre el diseño de Word {help_link('docx')}</div>
     </section>
     <section class="form-section" aria-labelledby="options-title">
       <div class="section-heading"><span class="step-number" aria-hidden="true">3</span>
@@ -200,12 +205,14 @@ async def convert(
     formats: list[str] = Form(default=[]),
     pages: str = Form(default=""),
     ocr: str = Form(default=""),
+    docx_warnings: str = Form(default=""),
 ) -> HTMLResponse:
     selected_formats = {f for f in formats if f in ALLOWED_FORMATS}
 
     def failure(message: str) -> HTMLResponse:
         return HTMLResponse(
-            render_form(message, selected_formats=selected_formats, pages=pages, ocr=bool(ocr)),
+            render_form(message, selected_formats=selected_formats, pages=pages, ocr=bool(ocr),
+                        docx_warnings=bool(docx_warnings)),
             status_code=HTTP_400_BAD_REQUEST,
         )
 
@@ -235,7 +242,8 @@ async def convert(
     source_path.write_bytes(body)
 
     try:
-        document = extract_digital(source_path, page_numbers=page_numbers, ocr=bool(ocr))
+        document = extract_digital(source_path, page_numbers=page_numbers, ocr=bool(ocr),
+                                   preserve_layout="docx" in selected_formats)
     except PDFValidationError as exc:
         messages = {
             "Invalid PDF signature": "El archivo no es un PDF válido. Selecciona otro documento.",
@@ -246,19 +254,20 @@ async def convert(
         }
         return failure(f"Conversión falló: {messages.get(str(exc), str(exc))}")
 
-    artifacts: dict[str, bytes] = {"document.ir.json": document.model_dump_json(indent=2).encode("utf-8")}
+    artifacts: dict[str, bytes] = {}
     try:
         if "xlsx" in selected_formats:
             from packages.exporters.xlsx import export_xlsx
             artifacts["result.xlsx"] = export_xlsx(document)
         if "docx" in selected_formats:
             from packages.exporters.docx import export_docx
-            artifacts["result.docx"] = export_docx(document)
+            artifacts["result.docx"] = export_docx(document, include_warnings=bool(docx_warnings))
         if "txt" in selected_formats:
             artifacts["result.txt"] = document.get_all_text().encode("utf-8")
     except ValueError:
         return failure("No se pudo exportar el contenido al formato elegido sin perder información. Prueba con TXT o con menos páginas.")
 
+    artifacts["document.ir.json"] = document.model_dump_json(indent=2).encode("utf-8")
     for name, data in artifacts.items():
         (job_dir / name).write_bytes(data)
 
@@ -268,6 +277,12 @@ async def convert(
         "OCR_REQUIRED": "Esta página no tiene texto extraíble. Vuelve a convertir con reconocimiento de texto (OCR) activado.",
         "IMAGES_NOT_EXTRACTED": "Las imágenes de esta página no se incluyen en los archivos convertidos.",
         "OCR_FAILED": "No se pudo reconocer el texto. Comprueba que Tesseract y Poppler están instalados.",
+        "DOCX_LAYOUT_APPROXIMATE": "Word conserva texto editable, tamaños, colores y posiciones aproximadas. Revisa la distribución y los saltos de página.",
+        "DOCX_FONT_SUBSTITUTED": "Algunas fuentes del PDF se sustituyeron por equivalentes de Word. El ajuste del texto puede variar.",
+        "DOCX_TABLE_AS_POSITIONED_TEXT": "Un panel complejo se conservó como texto editable en su posición; sus campos no forman una tabla de Word.",
+        "LAYOUT_ASSETS_UNAVAILABLE": "No se pudieron conservar todas las imágenes o los gráficos de esta página. Compara con el PDF original.",
+        "OCR_LAYOUT_APPROXIMATE": "El texto reconocido con OCR conserva un orden aproximado; su distribución original requiere ajuste.",
+        "ROTATED_TEXT_LAYOUT": "Hay texto girado. Revisa su orientación en Word.",
     }
     warning_items = "".join(
         f'<li><span class="warning-page">Página {w.page_number}</span>'
@@ -312,7 +327,7 @@ async def convert(
   </div>
   <aside class="sidebar" aria-label="Ayuda para revisar">
     <section class="panel summary-card"><h2>Antes de continuar</h2>
-      <p class="hint">Revisa cifras, encabezados y celdas combinadas. La conversión no reconstruye el diseño exacto ni las imágenes del PDF.</p>
+      <p class="hint">Revisa cifras, encabezados y celdas combinadas. Word aproxima el diseño e incluye las imágenes y gráficos que se pudieron conservar. Las fuentes y la edición pueden modificar los saltos de página.</p>
       <details><summary>Datos de la extracción</summary><p class="hint">JSON con contenido, procedencia y advertencias para una revisión técnica.</p>
         <div class="action-with-help"><a class="technical-download" href="/download/{job_id}/document.ir.json" data-help-action="json" download>Descargar document.ir.json</a>{help_link('json')}</div></details>
     </section>

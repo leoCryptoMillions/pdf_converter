@@ -203,6 +203,23 @@ Resumen rápido (detalle completo en el dashboard):
 | RSK-04 | Riesgo | high | tecnico | Benchmark de recursos con límites |
 | RSK-05 | Riesgo | blocker | datos_personales | Confirmar `.gitignore` efectivo y borrar lo innecesario (revisar 2026-11-20) |
 
+## Word con imágenes, estilos y distribución (2026-10-26)
+
+Autorización del usuario: «procede con las mejoras que propones». Se amplía
+el alcance Word de ADR 0004 mediante ADR 0005.
+
+| Fecha | Tarea | Áreas afectadas | Resultado y alcance | Fuentes/evidencia | Verificación | Pendiente |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-26 | Reconstrucción Word editable con tipografía, geometría e imágenes | F0-04; notas de F0-09 y F0-11 | IR 1.1.0 con estilos y PNG autocontenidos; párrafos posicionados, tablas sencillas con medidas/combinaciones y dibujos anclados. Los paneles complejos usan texto posicionado con advertencia. Anexo de notas opcional. Se corrige la nota atrasada de OCR en F0-11 y la atribución genérica LGPL en F0-09. | packages/converters/layout.py y digital.py; packages/document_ir/models.py; packages/exporters/docx.py; tests/unit/test_docx_layout.py; docs/adr/0005-word-layout.md. SRC-16/17/18; revisión de SRC-07. Evidencia privada en .generated/docx-review/. | 81 pruebas unitarias/HTTP pasan; recorrido Chromium real. Microsoft Word abre/renderiza comprobante digital de una página y sintético de dos páginas con orientación distinta. El comprobante conserva el multiconjunto de caracteres no blancos en DOCX y PDF renderizado; no se declara CER contra referencia nueva. | Adjudicar y medir tres diseños reales, revisar otros visores, texto girado y geometría OCR. Revisión de distribución/avisos y costo siguen pendientes. |
+
+Sin impacto en el cierre de las brechas: F0-04 conserva
+`implementation_status=partial`, `verification_status=pending` y
+`decision_status=pending`; las pruebas de la mejora no satisfacen por sí
+solas el criterio representativo del área. F0-09/F0-11 permanecen abiertos.
+`verification_coverage` **18% (2/11)** y `decision_coverage` **27% (3/11)**.
+No se actualiza el snapshot global ni se presenta F1 como implementado.
+El PDF del usuario y sus vistas no se incorporan al corpus ni a Git.
+
 ## Guardado de la sesión (2026-10-23)
 
 Pedido del usuario: «listo, guarda todo». Código, mascota, pruebas y

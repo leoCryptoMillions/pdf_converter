@@ -661,6 +661,43 @@ El siguiente trabajo de producto debe elegirse de los pendientes reales de
 F0; esta mejora de conveniencia no resuelve el Gate F0 ni adelanta F1.
 Siguen pendientes el borrado/TTL local y las brechas descritas en el dashboard.
 
+## Word con diseño, imágenes y estilos — 2026-10-26
+
+Por autorización directa («procede con las mejoras que propones»), se
+amplía el exportador Word del prototipo local. El IR 1.1.0 conserva estilos
+de fragmentos, geometría, medidas de tablas y PNG autocontenidos. La ruta
+mantiene texto editable mediante marcos de párrafo, tablas flotantes y
+dibujos anclados a cada página. Los paneles complejos se representan con
+líneas posicionadas y advertencia; no se presentan como tablas Word.
+
+PDFium elimina el texto de una copia privada en memoria antes de renderizar
+imágenes y gráficos. El original no cambia. Se fijan presupuestos de
+píxeles/bytes, se serializa esta ruta de PDFium y se informa si algún recurso
+no se conserva. OCR mantiene su salida de flujo y sus advertencias. La
+extracción visual se activa desde CLI/web solo al solicitar Word.
+
+El anexo de advertencias pasa a ser opcional; las notas siempre permanecen
+en resultados/IR. Se actualizan el formulario, los mensajes y la FAQ Word.
+`pypdfium2==5.14.0` se añade al subconjunto probado, usando la instalación
+existente; la revisión de distribución/licencias sigue pendiente.
+
+Validación: **81 pruebas unitarias/HTTP pasan**, incluidas regresiones de
+CLI, XLSX, TXT y OCR real; dos avisos de configuración de pytest preexistentes.
+Chromium pasa el recorrido de temas, ayuda, móvil y conversión/descargas.
+El tablero pasa apertura de fichas, cancelado/guardado del borrador y
+exportación sin cambiar estados (`tests/e2e/gaps_dashboard.cjs`).
+Microsoft Word abre y renderiza un comprobante digital local del usuario
+en una página y el caso sintético vertical/horizontal en dos páginas. En
+el comprobante se verifica el mismo multiconjunto de caracteres no blancos
+en el DOCX y en su PDF renderizado, sin pérdidas ni duplicaciones observadas.
+No es una medición de CER contra una nueva referencia humana.
+
+Evidencia privada en `.generated/docx-review/`; no se incorpora el archivo
+del usuario ni sus datos al corpus o a Git. Decisión: ADR 0005. F0-04 sigue
+parcial y pendiente de validación representativa; F0-09/F0-11 siguen abiertos.
+Dashboard, fuentes y seguimiento se concilian con este alcance, sin cambiar
+sus indicadores (verificación 18%, decisiones 27%).
+
 ## Calendario anterior (referencia histórica)
 
 **Fecha Planeada:** 2026-10-14 (después de completar P01)  

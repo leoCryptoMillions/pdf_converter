@@ -445,17 +445,17 @@ const deliverables = [
     id:"F0-04", title:"Exportación a DOCX editable (prototipo CLI)", category:"Conversión",
     risk_category:"funcional", kind:"pending", priority:"Antes de Gate F0",
     owner_role:"Responsable de conversión documental (rol sugerido)",
-    official_status:"CER normalizado 0% en dos rutas de extracción (pdfplumber y PDFium textual) sobre una página real, tras corregir una transcripción de referencia incorrecta. Validado en un solo diseño de documento.",
+    official_status:"Medición histórica: CER normalizado 0% en dos rutas sobre una página real, tras corregir una referencia incorrecta. Ampliación 2026-10-26: Word conserva texto editable posicionado, estilos, imágenes y gráficos; tablas sencillas con medidas y combinaciones detectadas. Microsoft Word abre/renderiza un comprobante local de una página y un caso sintético de dos páginas con orientación distinta. No se ha ampliado el ground truth adjudicado a tres diseños reales.",
     implementation_status:"partial", verification_status:"pending", decision_status:"pending",
     implemented_by:null, verified_by:null, decided_by:null, authority_ref:null, history:[], objection:null, review_by:null,
-    source_refs:["docs/AVANCE.md#validación-del-prototipo--2026-10-08","packages/exporters/docx.py"],
-    gap:"\"Word validado en un solo diseño\" está registrado explícitamente como bloqueador en AVANCE.md: no hay evidencia de que el mismo resultado se sostenga con otra plantilla o estructura de documento.",
+    source_refs:["docs/AVANCE.md#word-con-diseño-imágenes-y-estilos--2026-10-26","packages/exporters/docx.py","packages/converters/layout.py","tests/unit/test_docx_layout.py","docs/adr/0005-word-layout.md"],
+    gap:"La reconstrucción visual tiene pruebas sintéticas y una revisión local adicional, pero falta medir contra referencias humanas en al menos tres diseños reales. Fuentes disponibles, texto girado, OCR y compatibilidad entre visores requieren revisión; no se promete una copia idéntica ni edición como flujo continuo.",
     acceptance_criteria:"CER <= umbral acordado en al menos 3 diseños de documento distintos (p. ej. factura, contrato, acta), con edición/reapertura sin corrupción verificada en cada uno.",
-    next_action:"Anotar otros diseños Word y evaluar estructura e imágenes antes de declarar DOCX viable para Gate F0.",
+    next_action:"Adjudicar referencias de otros diseños reales, medir conservación y revisar visualmente Word antes de declarar DOCX viable para Gate F0. Mantener partial/pending.",
     fields:fields([
       {key:"context", label:"Contexto adicional observado", hint:"Qué diseño de documento se usó en la prueba.", example:"Factura sintética de una sola página; sin contratos ni actas probados."},
-      {key:"evidence", label:"Evidencia aportada", hint:"Referencia a archivo o prueba de edición/reapertura.", example:"Edición y reapertura sin corrupción confirmada en el único diseño probado."},
-      {key:"limits", label:"Límites observados", hint:"Qué estructuras no se probaron.", example:"Sin imágenes embebidas ni tablas complejas en DOCX todavía."},
+      {key:"evidence", label:"Evidencia aportada", hint:"Referencia a archivo o prueba de edición/reapertura.", example:"tests/unit/test_docx_layout.py: estilos, imágenes, columnas, tabla combinada y guardado/reapertura; revisión Word local en .generated/docx-review/."},
+      {key:"limits", label:"Límites observados", hint:"Qué estructuras no se probaron.", example:"Sin tres diseños reales adjudicados. Los paneles complejos usan texto posicionado; gráficos como PNG; OCR sin geometría validada."},
       {key:"next", label:"Siguiente acción propuesta", hint:"Paso concreto.", example:"Elegir 2 diseños adicionales representativos del corpus real."}
     ])
   },
@@ -543,12 +543,12 @@ const deliverables = [
     id:"F0-09", title:"Licencias y modelo de costo (criterio de Gate F0)", category:"Cumplimiento",
     risk_category:"legal_fiscal_seguridad", kind:"pending", priority:"Bloqueante para Gate F0",
     owner_role:"Responsable legal/costos (rol sugerido)",
-    official_status:"Inventario generado de 33 componentes y 61 archivos de avisos (dependency_inventory.py). Sin revisión legal formal de implicaciones LGPL (pypdfium2) ni modelo de costo cerrado.",
+    official_status:"Inventario histórico de 33 componentes y 61 archivos de avisos (dependency_inventory.py). docs/LICENCIAS.md registra pypdfium2 5.14.0 con licencias del wrapper, PDFium y dependencias; no corresponde atribuir LGPL al conjunto. Desde 2026-10-26 también se usa para imágenes/gráficos en la salida Word. La revisión del artefacto a distribuir y el modelo de costo siguen pendientes.",
     implementation_status:"partial", verification_status:"not_verified", decision_status:"pending",
     implemented_by:null, verified_by:null, decided_by:null, authority_ref:null, history:[], objection:null, review_by:null,
     source_refs:["docs/LICENCIAS.md","benchmarks/dependency_inventory.py","docs/AVANCE.md#bloqueadores-actuales"],
     gap:"El Gate F0 exige explícitamente \"licencias sin bloqueadores\" y \"modelo de costo definido\"; ninguno de los dos está cerrado según AVANCE.md.",
-    acceptance_criteria:"Revisión legal explícita de cada dependencia con licencia copyleft o con implicaciones de distribución (pypdfium2 LGPL, Tesseract), y un modelo de costo con supuestos documentados.",
+    acceptance_criteria:"Revisión explícita de las dependencias y los avisos del stack efectivo, incluidos binarios PDFium/Tesseract y modelos, junto con un modelo de costo con supuestos documentados.",
     next_action:"Revisar el stack efectivo (binarios y modelos, no solo paquetes Python) y medir recursos reales antes de F1.",
     fields:fields([
       {key:"context", label:"Contexto adicional observado", question_ids:["Q-04"], hint:"Qué presupuesto o tiempo hay disponible para la revisión legal.", example:"Sin presupuesto ni fecha asignados todavía."},
@@ -583,7 +583,7 @@ const deliverables = [
     implementation_status:"not_applicable", verification_status:"not_verified", decision_status:"pending",
     implemented_by:null, verified_by:null, decided_by:null, authority_ref:null, history:[], objection:null, review_by:null,
     source_refs:["docs/adr/0004-f0-local-prototype.md","docs/AVANCE.md#estado-resumen"],
-    gap:"El Gate F0 depende de que F0-01 (corpus) y F0-09 (licencias/costo) cierren sus brechas, y de que F0-02 (benchmark) amplíe su ground truth real; hoy ninguna lo ha hecho. F0-05 (OCR) ya no bloquea el gate en el sentido estricto: el 2026-10-20 se aceptó un criterio diferenciado (DEC-04) que resuelve cómo tratar portada vs. texto continuo, aunque falta implementar el enrutamiento needs_review correspondiente.",
+    gap:"El Gate F0 depende de que F0-01 (corpus) y F0-09 (licencias/costo) cierren sus brechas, y de que F0-02 (benchmark) amplíe su ground truth real; hoy ninguna lo ha hecho. F0-05 (OCR) ya no bloquea el gate en el sentido estricto: DEC-04 resolvió el criterio de portada vs. texto continuo y su enrutamiento needs_review fue implementado y verificado el 2026-10-23. La mejora Word del 2026-10-26 no equivale a aprobar el gate.",
     acceptance_criteria:"F1 XLSX >= 0.95, F1 DOCX >= 0.90, licencias sin bloqueadores, modelo de costo definido y equipo comprometido con continuar, según AVANCE.md. (AVANCE.md no incluye un criterio de CER de OCR entre los 4 criterios explícitos del gate; F0-05 se sigue monitoreando aquí por prudencia, no porque bloquee formalmente el gate.)",
     next_action:"No declarar Go/No-Go hasta que F0-01, F0-02 y F0-09 tengan verification_status distinto de not_verified/pending. F0-05 ya no es condición de bloqueo para esta decisión.",
     fields:fields([
@@ -599,7 +599,7 @@ const questions = [
   {id:"Q-01", area_id:"F0-11", title:"¿Qué evidencia falta para decidir Go/No-Go de F0?", explanation:"Antes de convocar la decisión, confirmar qué criterios cuantitativos del gate siguen sin cerrar."},
   {id:"Q-02", area_id:"F0-01", title:"¿Quién puede aportar más PDFs reales para scanned_difficult y mixed?", explanation:"Las dos categorías más atrasadas del corpus necesitan una fuente concreta, no solo una meta numérica. [Nota 2026-10-20: el umbral de CER de portada ya no bloquea el Gate F0 (ver F0-05/DEC-04), pero scanned_difficult sigue necesitando más muestra real.]"},
   {id:"Q-03", area_id:"F0-08", title:"[Resuelta 2026-10-20] ¿Se confirmó el borrado del INE real? ¿Quién lo verifica de forma independiente?", explanation:"Sí: verificación independiente el 2026-10-20 confirmó que el archivo ya no existe y nunca estuvo en git. Ver F0-08 para la evidencia. Pendiente separado: vigilancia del resto del corpus (RSK-05)."},
-  {id:"Q-04", area_id:"F0-09", title:"¿Qué presupuesto/tiempo hay para la revisión legal de licencias?", explanation:"pypdfium2 (LGPL) y Tesseract requieren una revisión explícita antes del Gate F0."},
+  {id:"Q-04", area_id:"F0-09", title:"¿Qué presupuesto/tiempo hay para la revisión legal de licencias?", explanation:"Revisar los avisos y binarios efectivos de PDFium, Tesseract y sus dependencias antes del Gate F0; el inventario técnico no aprueba su distribución."},
   {id:"Q-05", area_id:"F0-06", title:"¿Cuál es el primer endpoint a implementar: upload o conversión?", explanation:"Decidir el orden de F1 ayuda a priorizar entre API y worker sin construir ambos a la vez."}
 ];
 

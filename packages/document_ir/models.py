@@ -4,8 +4,8 @@ Document Intermediate Representation (IR) Models
 Defines the canonical schema for document representation across all conversion engines.
 This IR enables engine-agnostic extraction, validation, and export.
 
-Schema Version: 1.0.0
-Last Updated: 2026-10-07
+Schema Version: 1.1.0 (additive typography and self-contained layout assets)
+Last Updated: 2026-10-26
 """
 
 from datetime import datetime
@@ -121,6 +121,23 @@ class ContentWarning(BaseModel):
         }
 
 
+class TextRun(BaseModel):
+    """Editable text and observed PDF typography; no inferred confidence."""
+    content: str
+    font_name: Optional[str] = None
+    font_size: Optional[float] = None
+    bold: bool = False
+    italic: bool = False
+    color: Optional[str] = None
+
+
+class PositionedText(BaseModel):
+    """A line segment in top-left PDF points, including its original styles."""
+    content: str
+    location: Rectangle
+    runs: List[TextRun] = Field(default_factory=list)
+
+
 class Cell(BaseModel):
     """Table cell with content and metadata"""
     content: str = Field(..., description="Cell text content")
@@ -131,6 +148,9 @@ class Cell(BaseModel):
     col_index: int = Field(..., description="Column index in table")
     row_span: int = Field(default=1, description="Rows spanned")
     col_span: int = Field(default=1, description="Columns spanned")
+    runs: List[TextRun] = Field(default_factory=list)
+    padding_left: Optional[float] = None
+    padding_top: Optional[float] = None
 
     extraction_method: ExtractionMethod = Field(..., description="How content was extracted")
     original_source: Optional[Rectangle] = Field(None, description="Location in PDF")
@@ -161,6 +181,9 @@ class Table(BaseModel):
     rows: int = Field(..., description="Number of rows")
     columns: int = Field(..., description="Number of columns")
     cells: List[Cell] = Field(..., description="All cells in reading order")
+    column_widths: List[float] = Field(default_factory=list)
+    row_heights: List[float] = Field(default_factory=list)
+    text_lines: List[PositionedText] = Field(default_factory=list)
 
     has_header: bool = Field(default=False, description="Has header row")
     header_rows: int = Field(default=0, description="Number of header rows")
@@ -201,6 +224,7 @@ class Image(BaseModel):
     width: int = Field(..., description="Image width in pixels")
     height: int = Field(..., description="Image height in pixels")
     dpi: int = Field(default=300, description="Resolution in DPI")
+    kind: str = Field(default="embedded", description="embedded, graphics, or scanned_page")
 
     data_uri: Optional[str] = Field(None, description="Data URI for small images")
     external_ref: Optional[str] = Field(None, description="Reference to external storage")
@@ -231,6 +255,7 @@ class TextBlock(BaseModel):
 
     block_type: str = Field(default="paragraph", description="heading, paragraph, list, etc")
     reading_order: int = Field(..., description="Position in reading order")
+    runs: List[TextRun] = Field(default_factory=list)
 
     extraction_method: ExtractionMethod = Field(..., description="How extracted")
     is_vertical: bool = Field(default=False, description="Vertical text")
@@ -335,7 +360,7 @@ class DocumentIR(BaseModel):
     """
 
     # Schema versioning
-    schema_version: str = Field(default="1.0.0", description="IR schema version")
+    schema_version: str = Field(default="1.1.0", description="IR schema version")
 
     # Document identification
     document_id: str = Field(..., description="Unique document identifier")

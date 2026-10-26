@@ -11,6 +11,8 @@ from .models import (
     Cell,
     Image,
     TextBlock,
+    TextRun,
+    PositionedText,
     ContentWarning,
     DocumentMetadata,
     EngineConfig,
@@ -23,7 +25,7 @@ from .models import (
     IRValidationResult,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "DocumentIR",
     "Page",
@@ -31,6 +33,8 @@ __all__ = [
     "Cell",
     "Image",
     "TextBlock",
+    "TextRun",
+    "PositionedText",
     "ContentWarning",
     "DocumentMetadata",
     "EngineConfig",

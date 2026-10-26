@@ -35,6 +35,13 @@ No inferir que una dependencia GPL/AGPL/LGPL carece de obligaciones porque no se
 
 ## Reproducción
 
+Ampliación técnica 2026-10-26: la salida Word usa pypdfium2/PDFium para
+recortar imágenes y rasterizar la capa gráfica sin texto. Ya no se limita
+a la comparación interna del benchmark. `requirements-prototype.txt` fija
+la versión observada 5.14.0; no se instaló un paquete nuevo en esta sesión.
+Este cambio de uso debe incluirse en la revisión del paquete a distribuir
+y sus avisos. No constituye un dictamen ni cierra F0-09.
+
 Instalar el subconjunto de `requirements-prototype.txt` y los componentes opcionales necesarios para el benchmark. Luego ejecutar:
 
 ```powershell
