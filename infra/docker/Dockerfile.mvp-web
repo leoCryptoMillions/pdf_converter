@@ -1,0 +1,23 @@
+# Dockerfile for the F0 local-review MVP web wrapper (apps/local_review_ui.py).
+# Not the F1 platform API (see Dockerfile.api) - this is the single-user,
+# no-database, no-queue prototype, gated by optional HTTP Basic Auth so it
+# can be reached outside localhost (see AUTH_USERNAME/AUTH_PASSWORD).
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+COPY requirements-mvp.txt .
+RUN pip install --no-cache-dir -r requirements-mvp.txt
+
+COPY apps ./apps
+COPY packages ./packages
+
+RUN useradd -m -u 1000 appuser \
+    && mkdir -p /app/.generated/web_ui \
+    && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8420
+
+CMD ["python", "-m", "apps.local_review_ui"]

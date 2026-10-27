@@ -14,12 +14,14 @@ Then open http://127.0.0.1:8420/
 from __future__ import annotations
 
 import html
+import os
 import re
+import secrets
 import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.status import HTTP_400_BAD_REQUEST
 
@@ -39,9 +41,33 @@ FORMAT_INFO = {
 app = FastAPI(title="PDF Converter - F0 local review UI", docs_url=None, redoc_url=None)
 app.mount("/assets", StaticFiles(directory=ASSET_ROOT), name="assets")
 
+# Optional HTTP Basic Auth gate. Unset in local dev (README flow unchanged);
+# set both AUTH_USERNAME and AUTH_PASSWORD when running on a reachable host
+# (e.g. Railway) since this prototype has no accounts of its own.
+AUTH_USERNAME = os.environ.get("AUTH_USERNAME")
+AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD")
+
+
+def _authorized(request: Request) -> bool:
+    if not AUTH_USERNAME or not AUTH_PASSWORD:
+        return True
+    header = request.headers.get("authorization", "")
+    if not header.startswith("Basic "):
+        return False
+    import base64
+
+    try:
+        decoded = base64.b64decode(header[6:]).decode("utf-8")
+        user, _, pwd = decoded.partition(":")
+    except Exception:
+        return False
+    return secrets.compare_digest(user, AUTH_USERNAME) and secrets.compare_digest(pwd, AUTH_PASSWORD)
+
 
 @app.middleware("http")
 async def local_response_headers(request: Request, call_next):
+    if not _authorized(request):
+        return Response(status_code=401, headers={"WWW-Authenticate": "Basic realm=\"PDF Converter\""})
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -359,8 +385,10 @@ def main() -> None:
     import uvicorn
 
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    print("PDF Converter (F0 local review UI) - abre http://127.0.0.1:8420/")
-    uvicorn.run(app, host="127.0.0.1", port=8420)
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8420"))
+    print(f"PDF Converter (F0 local review UI) - abre http://{host}:{port}/")
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
