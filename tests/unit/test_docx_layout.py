@@ -223,3 +223,67 @@ def test_repeated_form_images_survive_on_each_page(tmp_path):
             assert raster.getpixel((raster.width // 2, raster.height // 2))[3] == 255
     assert assets[0].data_uri == assets[1].data_uri
     assert not any(w.code == 'LAYOUT_ASSETS_UNAVAILABLE' for p in ir.pages for w in p.warnings)
+
+
+def test_painted_backgrounds_do_not_become_padding_cells(tmp_path):
+    path = tmp_path / 'painted-grid.pdf'
+    pdf = canvas.Canvas(str(path), pagesize=(400, 400))
+    for row, y in enumerate([230, 200]):
+        for column, x in enumerate([40, 190]):
+            pdf.setFillColor(colors.lightgrey if row == 0 else colors.whitesmoke)
+            pdf.rect(x, y, 150, 30, fill=1, stroke=0)
+            pdf.rect(x + 5, y + 5, 140, 20, fill=1, stroke=0)
+            for dx, dy, width, height in [(0, 0, 5, 30), (145, 0, 5, 30),
+                                           (0, 0, 150, 5), (0, 25, 150, 5)]:
+                pdf.rect(x + dx, y + dy, width, height, fill=1, stroke=0)
+            pdf.setFillColor(colors.black)
+            pdf.setFont('Helvetica-Oblique' if row else 'Helvetica-Bold', 9)
+            pdf.drawString(x + 7, y + 11, [['Header one', 'Header two'], ['Value A', 'Value B']][row][column])
+    pdf.setFillColor(colors.black)
+    for y in [200, 230, 260]:
+        pdf.rect(40, y, 300, .5, fill=1, stroke=0)
+    for x in [40, 190, 340]:
+        pdf.rect(x, 200, .5, 60, fill=1, stroke=0)
+    pdf.save()
+    ir = extract_digital(path)
+    table = ir.pages[0].tables[0]
+    assert (table.rows, table.columns) == (2, 2)
+    assert [c.content for c in table.cells] == ['Header one', 'Header two', 'Value A', 'Value B']
+    assert any(w.code == 'TABLE_DECORATION_FILTERED' for w in ir.pages[0].warnings)
+    word = Document(BytesIO(export_docx(ir)))
+    assert word.tables[0].cell(1, 1).text == 'Value B'
+    assert all(r.italic for r in word.tables[0].cell(1, 1).paragraphs[0].runs if r.text.strip())
+    assert (len(word.tables[0].rows), len(word.tables[0].columns)) == (2, 2)
+
+
+def test_empty_padding_rows_keep_a_small_line_height(tmp_path):
+    path = tmp_path / 'small-padding.pdf'
+    pdf = canvas.Canvas(str(path), pagesize=(400, 400))
+    table = Table([['', ''], ['One', 'Two'], ['', '']], colWidths=[100, 100], rowHeights=[4.5, 20, 4.5])
+    table.setStyle(TableStyle([('GRID', (0, 0), (-1, -1), .5, colors.black),
+                               ('FONTSIZE', (0, 0), (-1, -1), 8)]))
+    table.wrapOn(pdf, 200, 29)
+    table.drawOn(pdf, 40, 250)
+    pdf.save()
+    ir = extract_digital(path)
+    word = Document(BytesIO(export_docx(ir)))
+    assert word.tables[0].cell(1, 1).text == 'Two'
+    for index in [0, 2]:
+        for cell in word.tables[0].rows[index].cells:
+            assert cell.paragraphs[0].paragraph_format.line_spacing.pt <= 4.5
+
+
+def test_truly_blank_page_does_not_request_ocr(tmp_path, monkeypatch):
+    path = tmp_path / 'blank.pdf'
+    pdf = canvas.Canvas(str(path))
+    pdf.showPage()
+    pdf.save()
+    from packages.converters import ocr as ocr_module
+    def unexpected(*args):
+        pytest.fail('OCR must not run on a structurally blank page')
+    monkeypatch.setattr(ocr_module, 'ocr_page', unexpected)
+    ir = extract_digital(path, ocr=True)
+    assert ir.pages[0].metadata['blank_page'] is True
+    assert any(w.code == 'EMPTY_PAGE' for w in ir.pages[0].warnings)
+    assert not any(w.code == 'OCR_REQUIRED' for w in ir.pages[0].warnings)
+    assert len(Document(BytesIO(export_docx(ir))).sections) == 1

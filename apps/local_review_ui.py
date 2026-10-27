@@ -283,6 +283,8 @@ async def convert(
         "LAYOUT_ASSETS_UNAVAILABLE": "No se pudieron conservar todas las imágenes o los gráficos de esta página. Compara con el PDF original.",
         "OCR_LAYOUT_APPROXIMATE": "El texto reconocido con OCR conserva un orden aproximado; su distribución original requiere ajuste.",
         "ROTATED_TEXT_LAYOUT": "Hay texto girado. Revisa su orientación en Word.",
+        "TABLE_DECORATION_FILTERED": "Se separaron los bordes de tabla de sus fondos de color. Revisa la estructura y las celdas frente al PDF.",
+        "EMPTY_PAGE": "Esta página no contiene texto ni elementos gráficos detectados.",
     }
     warning_items = "".join(
         f'<li><span class="warning-page">Página {w.page_number}</span>'

@@ -80,3 +80,22 @@ continuo. Texto girado, anotaciones y formularios interactivos requieren
 revisión. Esta ampliación no cierra la validación de tres diseños con
 ground truth ni aprueba F0-04, F0-09 o F0-11. La distribución efectiva de
 PDFium y sus avisos sigue dentro de la revisión pendiente de licencias.
+
+## Revisión 2026-10-27: tablas y validación de tres diseños
+
+La revisión completa de tres diseños reales encontró cuadrículas falsas
+producidas por rellenos pintados, filas de relleno que crecían en Word y
+estilos perdidos en celdas adyacentes. La ruta de diseño puede sustituir
+una cuadrícula por otra sin rellenos grandes (>2 puntos en ambos ejes)
+cuando cubre más del 95% de la región original, tiene menos celdas y
+conserva el multiconjunto de caracteres no blancos. Son guardas heurísticas,
+no una puntuación de calidad. Se informa `TABLE_DECORATION_FILTERED`.
+
+Se extraen los estilos dentro de cada celda, se fijan márgenes globales
+cero y se aplican sangrías/espaciado por párrafo. Las filas conservan altura
+mínima y los párrafos vacíos usan una línea pequeña para no expandir el
+relleno. Las páginas sin objetos detectados usan `EMPTY_PAGE`, sin pedir OCR.
+
+Resultados y límites: [VALIDACION_WORD_F0.md](../VALIDACION_WORD_F0.md).
+Se mantienen pendientes la adjudicación humana, el muestreo representativo
+y el Gate F0; no se sustituye esa aceptación por un conteo de caracteres.

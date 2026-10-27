@@ -7,6 +7,13 @@ storage y cola corresponde a F1 y permanece pendiente del Gate F0.
 
 ## Uso
 
+La validación Word más reciente está en
+[VALIDACION_WORD_F0.md](VALIDACION_WORD_F0.md): tres diseños completos,
+siete páginas, comparación visual y edición/reapertura en Microsoft Word.
+`benchmarks.validate_word` prepara y compara la evidencia;
+`benchmarks/render_word.ps1` realiza el render local. El informe describe
+las correcciones de tablas y la aceptación humana todavía pendiente.
+
 Instalar el subconjunto probado, preferentemente en un entorno virtual:
 
 ```powershell

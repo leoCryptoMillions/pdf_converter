@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 from io import BytesIO
+import statistics
 
 from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION_START
@@ -63,7 +64,7 @@ def _paragraph_format(paragraph, size=10):
 
 def _positioned_paragraph(output, line, page):
     paragraph = output.add_paragraph()
-    size = max((r.font_size or 10 for r in line.runs), default=10)
+    size = max((r.font_size or 10 for r in line.runs if r.content.strip()), default=10)
     _paragraph_format(paragraph, size)
     box = line.location
     # PDF glyph bounds omit the line's leading; Word positions its line box.
@@ -129,6 +130,12 @@ def _table(output, source, positioned, graphics_present):
     for column, width in zip(table.columns, widths):
         column.width = Pt(width)
     properties = table._tbl.tblPr
+    # Word otherwise inherits a 5.4 pt global cell margin. Its floating
+    # table position and per-row padding can then differ from PDF geometry.
+    default_margins = _element('w:tblCellMar')
+    for side in ('top', 'left', 'bottom', 'right'):
+        default_margins.append(_element('w:' + side, w=0, type='dxa'))
+    properties.append(default_margins)
     table_width = properties.find(qn('w:tblW'))
     table_width.set(qn('w:w'), _twips(sum(widths)))
     table_width.set(qn('w:type'), 'dxa')
@@ -161,15 +168,34 @@ def _table(output, source, positioned, graphics_present):
         cell = table.cell(*coord)
         cell.width = Pt(sum(widths[source_cell.col_index:source_cell.col_index + source_cell.col_span]))
         cell.text = ''
-        size = max((r.font_size or 10 for r in source_cell.runs), default=10)
+        size = max((r.font_size or 10 for r in source_cell.runs if r.content.strip()), default=10) if source_cell.content else 1
         margins = _element('w:tcMar')
-        for side, value in [('left', source_cell.padding_left if source_cell.padding_left is not None else 2),
-                            ('top', max(0, (source_cell.padding_top or 0) - size * .18)),
-                            ('bottom', 0), ('right', 0)]:
-            margins.append(_element('w:' + side, w=_twips(value), type='dxa'))
+        for side in ('top', 'left', 'bottom', 'right'):
+            margins.append(_element('w:' + side, w=0, type='dxa'))
         cell._tc.get_or_add_tcPr().append(margins)
         paragraph = cell.paragraphs[0]
         _paragraph_format(paragraph, size)
+        paragraph.paragraph_format.left_indent = Pt(source_cell.padding_left if source_cell.padding_left is not None else 2)
+        # Use paragraph spacing for each cell. Word takes the maximum top
+        # cell margin across a row, incorrectly shifting two-line cells when
+        # a one-line neighbour is vertically centred in the source PDF.
+        paragraph.paragraph_format.space_before = Pt(max(0, (source_cell.padding_top or 0) - size * .18))
+        if source_cell.original_source and source.text_lines:
+            box = source_cell.original_source
+            tops = sorted({line.location.y0 for line in source.text_lines
+                           if box.x0 <= (line.location.x0 + line.location.x1) / 2 <= box.x1 and
+                           box.y0 <= (line.location.y0 + line.location.y1) / 2 <= box.y1})
+            distances = [b - a for a, b in zip(tops, tops[1:]) if size * .5 <= b - a <= size * 3]
+            if distances:
+                paragraph.paragraph_format.line_spacing = Pt(statistics.median(distances))
+        if not source_cell.content:
+            # PDF grids often contain padding rows only 3-5 pt high. A default
+            # 10 pt empty Word paragraph would enlarge every padding row and
+            # push later text over the next floating table or heading.
+            paragraph.paragraph_format.line_spacing = Pt(1)
+            mark = _element('w:rPr')
+            mark.append(_element('w:sz', val=2))
+            paragraph._p.get_or_add_pPr().append(mark)
         _runs(paragraph, source_cell.runs, source_cell.content)
     for row, height in zip(table.rows, source.row_heights):
         row.height = Pt(height)

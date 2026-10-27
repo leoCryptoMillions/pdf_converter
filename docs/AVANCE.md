@@ -715,6 +715,41 @@ Word/Chromium), sin presentarla como una nueva ejecución de pruebas.
 F0-04 sigue partial/pending; Gate F0 pendiente. Indicadores sin cambios:
 verificación 18% (2/11), decisiones 27% (3/11).
 
+## Validación Word completa en tres diseños — 2026-10-27
+
+El usuario autorizó proceder con la validación recomendada de F0-04. Se
+procesaron completos `cep_001`, `carta_privacidad_001` y `doc_texto_002`,
+todos autorizados en el corpus. Son siete páginas; Word 16.0 mantiene
+1/2/4 páginas respectivamente. Se verifica edición, guardado y reapertura
+del texto en los tres casos y de una celda de tabla de tres columnas.
+
+La revisión encontró solapamientos en las tablas del informe: sus rellenos
+pintados producían filas/columnas adicionales y Word ampliaba las filas por
+márgenes/interlineado. Se corrigieron la detección de diseño, el tamaño de
+párrafos vacíos y los márgenes/espaciados, y se extraen estilos por celda.
+Una página realmente vacía usa `EMPTY_PAGE`, evitando pedir OCR innecesario.
+
+La corrida final conserva 7,420 caracteres no blancos, sin faltantes ni
+adicionales observados contra pdfplumber, PDFium y el PDF renderizado por
+Word. Este conteo no prueba orden/espacios ni equivale a CER humano.
+La mediana de desplazamiento de palabras únicas en la página de tablas
+del informe mejora de 8.872 (147 palabras) a 0.426 puntos (150 palabras);
+los subconjuntos pueden variar y no es una métrica de gate.
+Las siete páginas mantienen dimensiones dentro del redondeo de Word.
+
+**86 pruebas unitarias/HTTP pasan**, incluidas regresiones de CLI, XLSX,
+TXT y OCR, con los dos avisos de configuración preexistentes. Se añaden
+`benchmarks/validate_word.py` y `render_word.ps1`, pruebas sintéticas del
+fallo y un comparativo HTML local con descargas. Informe versionado:
+`docs/VALIDACION_WORD_F0.md`. Artefactos privados:
+`.generated/word-validation-20261026/final/`; se conservan los intermedios.
+
+La revisión visual es de ingeniería por Codex. La adjudicación humana de
+referencias sigue pendiente y no se promovió ninguna anotación automática
+a ground truth verificado. F0-04 conserva partial/pending/pending; F0-11
+sigue pendiente. No se amplía el corpus ni se acredita F1. Indicadores:
+verificación 18% (2/11), decisiones 27% (3/11). Tablero y fuentes conciliados.
+
 ## Calendario anterior (referencia histórica)
 
 **Fecha Planeada:** 2026-10-14 (después de completar P01)  

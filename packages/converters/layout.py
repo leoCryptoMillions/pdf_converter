@@ -7,6 +7,7 @@ source file is modified and no page screenshot substitutes editable text.
 from __future__ import annotations
 
 import base64
+from collections import Counter
 from io import BytesIO
 import math
 import re
@@ -69,7 +70,8 @@ def styled_runs(chars: list[dict], expected: str) -> list[TextRun]:
     return runs
 
 
-def positioned_lines(raw) -> list[PositionedText]:
+def positioned_lines(raw, *, origin=None) -> list[PositionedText]:
+    origin = raw.bbox[:2] if origin is None else origin
     result = []
     for line in raw.extract_text_lines(return_chars=True):
         segments: list[list[dict]] = [[]]
@@ -88,10 +90,10 @@ def positioned_lines(raw) -> list[PositionedText]:
             if not text:
                 continue
             result.append(PositionedText(content=text, runs=styled_runs(chars, text),
-                location=Rectangle(x0=min(c['x0'] for c in chars) - raw.bbox[0],
-                                   y0=min(c['top'] for c in chars) - raw.bbox[1],
-                                   x1=max(c['x1'] for c in chars) - raw.bbox[0],
-                                   y1=max(c['bottom'] for c in chars) - raw.bbox[1])))
+                location=Rectangle(x0=min(c['x0'] for c in chars) - origin[0],
+                                   y0=min(c['top'] for c in chars) - origin[1],
+                                   x1=max(c['x1'] for c in chars) - origin[0],
+                                   y1=max(c['bottom'] for c in chars) - origin[1])))
     return result
 
 
@@ -110,6 +112,40 @@ def cell_runs(lines: list[PositionedText], content: str) -> list[TextRun]:
         return [TextRun(content=content, **(
             lines[0].runs[0].model_dump(exclude={'content'}) if lines and lines[0].runs else {}))]
     return runs
+
+
+def refine_tables(raw, original_tables):
+    """Ignore large decorative fills only when a border grid retains all text.
+
+    PDFs emitted by Word may paint each padding area and text background as
+    rectangles. Treating every fill edge as a cell creates 3 pt rows and
+    5 pt columns. Thin border strips and actual strokes remain eligible.
+    A replacement must overlap the same table and preserve its character
+    multiplicities; otherwise the existing extraction is retained.
+    """
+    if not any(not rect.get('stroke') and min(rect['width'], rect['height']) > 2 for rect in raw.rects):
+        return original_tables, 0
+    filtered = raw.filter(lambda obj: obj.get('object_type') != 'rect' or obj.get('stroke') or
+                         min(obj.get('width', 0), obj.get('height', 0)) <= 2)
+    candidates = filtered.find_tables()
+    def characters(table):
+        return Counter(char for row in table.extract() for value in row for char in (value or '')
+                       if not char.isspace())
+    result, count = [], 0
+    for original in original_tables:
+        replacement = None
+        for candidate in candidates:
+            a, b = original.bbox, candidate.bbox
+            overlap = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
+            area = max(1, (a[2] - a[0]) * (a[3] - a[1]))
+            if (overlap / area > .95 and len(candidate.rows) <= len(original.rows) and
+                    len(candidate.columns) <= len(original.columns) and
+                    len(candidate.cells) < len(original.cells) and characters(candidate) == characters(original)):
+                replacement = candidate
+                count += 1
+                break
+        result.append(replacement or original)
+    return result, count
 
 
 def _issue(page, code: str, message: str):

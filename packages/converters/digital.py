@@ -39,7 +39,7 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
         for chunk in iter(lambda: stream.read(65536), b""):
             digest.update(chunk)
     started = time.monotonic()
-    from packages.converters.layout import LayoutAssets, cell_runs, inside, positioned_lines
+    from packages.converters.layout import LayoutAssets, cell_runs, inside, positioned_lines, refine_tables
     assets = LayoutAssets(source)
     try:
         with pdfplumber.open(source) as pdf:
@@ -67,7 +67,12 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                             extracted_text=text,
                             metadata={"coordinate_system": "top-left, PDF points",
                                       "text_coverage_measured": False})
-                if not text.strip():
+                blank_page = not (text.strip() or raw.chars or raw.images or raw.rects or raw.curves or raw.lines or raw.annots)
+                if blank_page:
+                    page.metadata['blank_page'] = True
+                    page.warnings.append(ContentWarning(level='info', code='EMPTY_PAGE',
+                        message='No text, graphics, images or annotations detected on this page.', page_number=number))
+                if not text.strip() and not blank_page:
                     if ocr:
                         from packages.converters.ocr import OCRUnavailableError, classify_ocr_result, ocr_page
                         try:
@@ -89,7 +94,15 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                         page.warnings.append(warning("OCR_REQUIRED", "Page has no extractable text; OCR was not run.", number))
                 if raw.images and not preserve_layout:
                     page.warnings.append(warning("IMAGES_NOT_EXTRACTED", "Embedded images are not exported by this F0 prototype.", number))
-                for index, found in enumerate(raw.find_tables(), 1):
+                found_tables = raw.find_tables()
+                if preserve_layout:
+                    found_tables, refined = refine_tables(raw, found_tables)
+                    if refined:
+                        page.metadata['table_strategy'] = 'lines_without_decorative_fills'
+                        page.metadata['refined_tables'] = refined
+                        page.warnings.append(warning('TABLE_DECORATION_FILTERED',
+                            'Decorative fill edges were excluded from the table grid; extracted character multiplicities were preserved.', number))
+                for index, found in enumerate(found_tables, 1):
                     rows = found.extract()
                     if not rows:
                         continue
@@ -134,7 +147,12 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                             if cell.original_source is None:
                                 continue
                             box = cell.original_source
-                            cell_lines = [line for line in table.text_lines if inside(line.location, box)]
+                            # Extract each cell independently. A page-wide
+                            # line can straddle adjacent cells and lose the
+                            # smaller cell's font/style when split by centre.
+                            region = raw.within_bbox((box.x0 + raw.bbox[0], box.y0 + raw.bbox[1],
+                                                      box.x1 + raw.bbox[0], box.y1 + raw.bbox[1]), strict=False)
+                            cell_lines = positioned_lines(region, origin=raw.bbox[:2])
                             cell.runs = cell_runs(cell_lines, cell.content)
                             cell.col_span = max(1, sum(box.x0 < x <= box.x1 for x in xs))
                             cell.row_span = max(1, sum(box.y0 < y <= box.y1 for y in ys))

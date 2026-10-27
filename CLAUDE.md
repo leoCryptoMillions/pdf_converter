@@ -74,6 +74,7 @@ Core Design Principle: Preserve original content and conversion provenance. Neve
   - Tested local subset uses python-docx 1.2.0; see requirements-prototype.txt
   - Preserve editable text with measured typography, page geometry and images; requirements RF-DOCX-01 through RF-DOCX-08 and RNF-DOCX-01 are in PLAN_APP_CONVERSION_PDF_v1.0.md §11.1
   - See docs/adr/0005-word-layout.md for the positioned Word reconstruction and its limits; representative F0 validation remains pending
+  - Latest three-design engineering review: docs/VALIDACION_WORD_F0.md; human-adjudicated references and Gate F0 acceptance remain pending
   - No embedded scripts, macros, or external links
   - Embed sanitized, self-contained PNG resources; graphics must not duplicate digital text
   - Keep warnings in results/IR; the Word warnings annex is optional and off by default

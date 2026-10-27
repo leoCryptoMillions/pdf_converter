@@ -232,6 +232,23 @@ Sin impacto en el cierre de las brechas: se formaliza el alcance ya
 autorizado, sin modificar el motor ni los estados del área.
 `verification_coverage` **18% (2/11)** y `decision_coverage` **27% (3/11)**.
 
+## Validación técnica Word en tres diseños (2026-10-27)
+
+Autorización del usuario: «procede», tras recomendar validar tres diseños
+reales, corregir los fallos y generar un informe. Se usaron exclusivamente
+casos con autorización local registrada en el corpus.
+
+| Fecha | Tarea | Áreas afectadas | Fuentes/evidencia | Verificación | Decisión pendiente |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Validar tres diseños completos y corregir tablas Word | F0-04; notas para F0-02/F0-11 | docs/VALIDACION_WORD_F0.md; benchmarks/validate_word.py y render_word.ps1; código de conversión/exportación y pruebas sintéticas. Evidencia privada .generated/word-validation-20261026/final/. SRC-21/22; actualización de SRC-16/17/18. | 86 pruebas unitarias/HTTP pasan. Word 16.0 conserva 1/2/4 páginas, permite editar texto en los tres casos y una celda de tres columnas; guarda y reabre. Las siete páginas se revisan visualmente por Codex. Coinciden 7,420 caracteres no blancos contra dos extractores y el render Word. Se corrigen cuadrículas por rellenos, márgenes/interlineado y estilos de celda; una página vacía usa EMPTY_PAGE. Chromium comprueba la app y el tablero. | Adjudicación humana de referencias y evaluación representativa/reservada; sin nueva medición CER/F1 ni aprobación Go/No-Go. |
+
+Sin impacto en el cierre de las brechas: F0-04 conserva
+`partial/pending/pending`. La comparación de multiconjuntos no valida orden,
+espacios ni exactitud semántica. No se agregaron documentos al corpus ni
+referencias automáticas verificadas; fuentes y resultados reales permanecen
+locales. `verification_coverage` **18% (2/11)** y `decision_coverage`
+**27% (3/11)**. Sin avance de F1 ni cambio del snapshot global.
+
 ## Guardado de la sesión (2026-10-23)
 
 Pedido del usuario: «listo, guarda todo». Código, mascota, pruebas y
