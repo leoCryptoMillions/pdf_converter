@@ -20,7 +20,11 @@ from packages.document_ir.models import ContentWarning, Image, PositionedText, R
 PDFIUM_LOCK = RLock()  # PDFium is not thread-safe, even across documents.
 MAX_RENDER_PIXELS = 8_000_000
 MAX_ASSET_BYTES = 12 * 1024 * 1024
-MAX_DOCUMENT_ASSET_BYTES = 48 * 1024 * 1024
+# A real multi-page scanned document (e.g. a 32-page newspaper with no
+# embedded text) can need hundreds of MB of full-page images; the per-image
+# JPEG encoding below (see _store) is what keeps that realistic, not a huge
+# budget on its own.
+MAX_DOCUMENT_ASSET_BYTES = 150 * 1024 * 1024
 MAX_IMAGES_PER_PAGE = 100
 
 
@@ -56,7 +60,11 @@ def styled_runs(chars: list[dict], expected: str) -> list[TextRun]:
     for char in sorted(chars, key=lambda c: c['x0']):
         style = font_style(char)
         value = char['text']
-        if last and char['x0'] - last['x1'] > 3 and not value.startswith(' '):
+        # A flat point gap misses real word boundaries in small-font text with
+        # no explicit space glyph (e.g. 8pt government forms: ~2.2pt gaps) and
+        # merges words together; scale the threshold with the character size
+        # instead, matching the segment-split heuristic below.
+        if last and char['x0'] - last['x1'] > max(1, char['size'] * .2) and not value.startswith(' '):
             value = ' ' + value
         if runs and all(getattr(runs[-1], key) == val for key, val in style.items()):
             runs[-1].content += value
@@ -90,7 +98,15 @@ def positioned_lines(raw, *, origin=None) -> list[PositionedText]:
                 segments.append([])
             segments[-1].append(char)
         for chars in segments:
-            text = (pdfplumber.utils.extract_text(chars, layout=False) or '').strip()
+            # Match styled_runs' own space heuristic below (same formula) so
+            # this "expected" text and styled_runs' reconstruction agree.
+            # pdfplumber's default x_tolerance=3 misses real word gaps in
+            # small-font text with no explicit space glyph, and styled_runs'
+            # reconciliation check would then discard its own correct
+            # spacing to match this merged "expected" text if they disagreed.
+            space_tolerance = max(1, min((c['size'] for c in chars), default=10) * .2)
+            text = (pdfplumber.utils.extract_text(
+                chars, layout=False, x_tolerance=space_tolerance) or '').strip()
             if not text:
                 continue
             result.append(PositionedText(content=text, runs=styled_runs(chars, text),
@@ -270,13 +286,25 @@ class LayoutAssets:
 
     def _store(self, page, raster, box, kind, index):
         buffer = BytesIO()
-        raster.save(buffer, format='PNG')  # Fresh PNG, no PDF streams or external references.
+        if kind == 'scanned_page':
+            # A full scanned page (no digital text at all; OCR_REQUIRED
+            # already flags it as non-authoritative) has no transparency to
+            # preserve and compresses poorly as lossless PNG - a real 32-page
+            # newspaper scan ran out of the per-document image budget after
+            # only 8 pages at ~6MB each, leaving the rest of the document
+            # blank. JPEG keeps a faithful visual fallback at a fraction of
+            # the size.
+            raster.convert('RGB').save(buffer, format='JPEG', quality=85)
+            mime, fmt = 'image/jpeg', 'jpeg'
+        else:
+            raster.save(buffer, format='PNG')  # Fresh PNG, no PDF streams or external references.
+            mime, fmt = 'image/png', 'png'
         data = buffer.getvalue()
         if len(data) > MAX_ASSET_BYTES or self.bytes_used + len(data) > MAX_DOCUMENT_ASSET_BYTES:
             raise ValueError('Image budget exceeded')
         self.bytes_used += len(data)
         page.images.append(Image(id=f'p{page.page_number}_{kind}_{index}',
             page_number=page.page_number, location=Rectangle(x0=box[0], y0=box[1], x1=box[2], y1=box[3]),
-            format='png', width=raster.width, height=raster.height,
+            format=fmt, width=raster.width, height=raster.height,
             dpi=round(raster.width / (box[2] - box[0]) * 72), kind=kind,
-            data_uri='data:image/png;base64,' + base64.b64encode(data).decode('ascii')))
+            data_uri=f'data:{mime};base64,' + base64.b64encode(data).decode('ascii')))

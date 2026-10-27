@@ -174,6 +174,50 @@ def test_scan_background_does_not_duplicate_ocr_text(tmp_path, monkeypatch, ocr)
         assert export_docx(ir).startswith(b'PK')
 
 
+@pytest.mark.mvp
+def test_multi_page_scans_use_jpeg_to_fit_the_shared_image_budget(tmp_path, monkeypatch):
+    # Real-world bug (2026-10-27, a real 32-page scanned newspaper with no
+    # digital text): every full-page scan was stored as lossless PNG
+    # (~6MB each for photographic content) and the shared per-document
+    # image budget ran out after ~8 pages, leaving the rest of the document
+    # completely blank - no text (it's a scan) and no image (budget
+    # exceeded). JPEG for this specific case (a visual fallback already
+    # flagged OCR_REQUIRED, never authoritative text) is a quarter of the
+    # size here, same as the real document, so far more pages fit.
+    import random
+    from packages.converters import layout as layout_module
+
+    photo = Image.new('RGB', (300, 300))
+    random.seed(0)
+    pixels = []
+    for y in range(300):
+        base = (y * 255 // 300, 120, 255 - y * 255 // 300)
+        for _ in range(300):
+            noise = random.randrange(-20, 20)
+            pixels.append(tuple(max(0, min(255, c + noise)) for c in base))
+    photo.putdata(pixels)
+
+    path = tmp_path / 'scanned-newspaper.pdf'
+    pdf = canvas.Canvas(str(path), pagesize=(300, 300))
+    for _ in range(3):
+        pdf.drawImage(ImageReader(photo), 0, 0, width=300, height=300)
+        pdf.showPage()
+    pdf.save()
+
+    # Comfortably above 3x this image's actual rendered JPEG size (~98KB
+    # each) but well under even a single rendered PNG of it (~770KB): the
+    # old PNG path would have exceeded this budget on page 1; the JPEG path
+    # fits all 3 pages, exactly like the real fix.
+    monkeypatch.setattr(layout_module, 'MAX_DOCUMENT_ASSET_BYTES', 350_000)
+
+    ir = extract_digital(path)
+    assert len(ir.pages) == 3
+    assert [p.images[0].format for p in ir.pages if p.images] == ['jpeg'] * 3
+    assert not any(w.code == 'LAYOUT_ASSETS_UNAVAILABLE' for p in ir.pages for w in p.warnings)
+    word = Document(BytesIO(export_docx(ir)))
+    assert len(word.sections) == 3
+
+
 def test_legacy_ir_without_layout_fields_can_still_export(layout_pdf):
     legacy = extract_digital(layout_pdf, preserve_layout=False).model_dump()
     legacy['schema_version'] = '1.0.0'
@@ -199,6 +243,114 @@ def test_selected_page_and_optional_warnings_annex(layout_pdf):
     word = Document(BytesIO(export_docx(ir, include_warnings=True)))
     assert any(p.text == 'Conversion warnings' for p in word.paragraphs)
     assert not any(p.text == 'Left column text' for p in word.paragraphs)
+
+
+@pytest.mark.mvp
+def test_tightly_stacked_lines_do_not_overlap_in_word(tmp_path):
+    # A large heading immediately followed by a much closer line than its own
+    # font size implies (e.g. a receipt's title sitting right above a folio
+    # number) must not force a Word frame taller than the real gap between
+    # them, or the heading's text paints over the line below it.
+    path = tmp_path / 'tight.pdf'
+    pdf = canvas.Canvas(str(path), pagesize=(595, 850))
+    pdf.setFont('Helvetica-Bold', 20)
+    pdf.drawString(40, 760, 'Tight Heading')
+    pdf.setFont('Helvetica', 9)
+    pdf.drawString(40, 750, 'Immediately below the heading')
+    pdf.save()
+
+    ir = extract_digital(path)
+    word = Document(BytesIO(export_docx(ir)))
+
+    heading = next(p for p in word.paragraphs if p.text == 'Tight Heading')
+    below = next(p for p in word.paragraphs if p.text == 'Immediately below the heading')
+    heading_frame = heading._p.pPr.find(qn('w:framePr'))
+    below_frame = below._p.pPr.find(qn('w:framePr'))
+    heading_top = int(heading_frame.get(qn('w:y')))
+    below_top = int(below_frame.get(qn('w:y')))
+    heading_height_twips = round(heading.paragraph_format.line_spacing.pt * 20)
+    assert heading_top + heading_height_twips <= below_top
+    # Confirms the gap-based clamp actually fired, not just a lucky layout:
+    # the heading's own font-size-based spacing (20*1.15=23pt) would overlap.
+    assert heading.paragraph_format.line_spacing.pt < 23
+
+
+@pytest.mark.mvp
+def test_unrecognized_embedded_font_falls_back_to_a_safe_width_predictable_font(tmp_path):
+    # Real-world bug (2026-10-27, user-provided receipt): a PDF embedding a
+    # branded font like "Lato-Bold" that isn't Helvetica/Times/Courier was
+    # requested from Word by its literal name. Word substituted it with an
+    # unknown, wider fallback, wrapping the heading to a second line inside
+    # its own single-line frame and overlapping the content right below it.
+    # Forcing unrecognized fonts to Arial makes the substitution predictable.
+    import reportlab
+    from pathlib import Path
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    pdfmetrics.registerFont(TTFont('Lato-Bold', str(Path(reportlab.__file__).parent / 'fonts' / 'Vera.ttf')))
+    path = tmp_path / 'custom-font.pdf'
+    pdf = canvas.Canvas(str(path), pagesize=(595, 850))
+    pdf.setFont('Lato-Bold', 15)
+    pdf.drawString(20, 800, 'Comprobante de operacion')
+    pdf.setFont('Helvetica', 12)
+    pdf.drawString(20, 782, 'FOLIO-1234567890')
+    pdf.save()
+
+    ir = extract_digital(path)
+    word = Document(BytesIO(export_docx(ir)))
+    heading = next(p for p in word.paragraphs if p.text == 'Comprobante de operacion')
+    assert heading.runs[0].font.name == 'Arial'
+    assert any(w.code == 'DOCX_FONT_SUBSTITUTED' for p in ir.pages for w in p.warnings)
+
+
+@pytest.mark.mvp
+def test_small_font_words_with_no_space_glyph_stay_separated(tmp_path):
+    # Real-world bug (2026-10-27, a SAT "Constancia de Situacion Fiscal"):
+    # some PDF generators position each word individually at a small visual
+    # gap without an actual space character glyph between them. At small
+    # font sizes (8pt here, matching the real document) that gap is well
+    # under pdfplumber's flat default x_tolerance=3, so both a table cell's
+    # text and a free-flowing paragraph line merge every word together with
+    # no spaces - in a table cell ("Sociedadesfinancieras...") and in body
+    # text alike.
+    path = tmp_path / 'tight-words.pdf'
+    pdf = canvas.Canvas(str(path), pagesize=(400, 400))
+    font, size, gap = 'Helvetica', 8, 2.2
+
+    def draw_words(y, words):
+        x = 40.0
+        for word in words:
+            pdf.setFont(font, size)
+            pdf.drawString(x, y, word)
+            x += pdf.stringWidth(word, font, size) + gap
+
+    # A free paragraph line, no table involved.
+    draw_words(360, ['Sus', 'datos', 'personales'])
+
+    # A two-row, one-column table (a single-cell box isn't recognized as a
+    # table by pdfplumber's default "lines" strategy; a header row is the
+    # minimal structure it detects, same grid technique as layout_pdf
+    # below). Leave the data cell empty and draw the tight-gap words over it
+    # directly, since the flowable's own text layout would insert real
+    # space glyphs and not reproduce the bug.
+    table = Table([['Actividad'], ['']], colWidths=[250], rowHeights=[20, 20])
+    table.setStyle(TableStyle([('GRID', (0, 0), (-1, -1), .5, colors.black)]))
+    table.wrapOn(pdf, 250, 40)
+    table.drawOn(pdf, 40, 280)
+    draw_words(286, ['Sociedades', 'financieras', 'de', 'objeto'])
+    pdf.save()
+
+    ir = extract_digital(path)
+    page = ir.pages[0]
+    paragraph_text = next(b.content for b in page.blocks if b.content.startswith('Sus'))
+    assert paragraph_text == 'Sus datos personales'
+    cell_text = next(c.content for c in page.tables[0].cells if c.row_index == 1)
+    assert cell_text == 'Sociedades financieras de objeto'
+
+    word = Document(BytesIO(export_docx(ir)))
+    assert any(p.text == 'Sus datos personales' for p in word.paragraphs)
+    assert word.tables[0].cell(1, 0).text == 'Sociedades financieras de objeto'
 
 
 @pytest.mark.mvp

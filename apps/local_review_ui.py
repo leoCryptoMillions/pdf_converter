@@ -40,6 +40,13 @@ OUTPUT_ROOT = Path(".generated/web_ui")
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # Matches extract_digital's own default limit.
 ALLOWED_FORMATS = {"xlsx", "docx", "txt"}
 ASSET_ROOT = Path(__file__).with_name("local_review_assets")
+
+# Bump on every user-visible feature/fix so whoever opens the app can tell
+# which build they're reviewing without checking git log. Keep the note to
+# one short line describing what's new in THIS build, not a full changelog.
+APP_VERSION = "0.4.0"
+APP_VERSION_DATE = "2026-10-27"
+APP_VERSION_NOTE = "Corrige documentos escaneados largos en blanco; recuerda tu configuración; aislamiento y TTL"
 FORMAT_INFO = {
     "xlsx": ("Excel", "Tablas y celdas"),
     "docx": ("Word", "Diseño e imágenes"),
@@ -113,7 +120,13 @@ async def local_response_headers(request: Request, call_next):
 PAGE_SHELL = ((ASSET_ROOT / "shell.html").read_text(encoding="utf-8")
               .replace("{help_templates}", contextual_templates())
               .replace("{theme_help}", help_link("theme"))
-              .replace("{menu_help}", help_link("help")))
+              .replace("{menu_help}", help_link("help"))
+              .replace("{app_version_label}", html.escape(f"v{APP_VERSION}"))
+              .replace("{app_version_note}", html.escape(f"{APP_VERSION_DATE} · {APP_VERSION_NOTE}"))
+              # Cache-busts /assets/* on every version bump: a browser that
+              # cached an older app.js/style.css would otherwise keep running
+              # stale client code indefinitely after a server-side update.
+              .replace("{app_version}", APP_VERSION))
 
 
 def icon(name: str) -> str:
@@ -168,7 +181,8 @@ def render_form(error: str | None = None, *, selected_formats: set[str] | None =
 </div>
 {error_html}
 <div class="workspace">
-  <form id="convert-form" class="panel" action="/convert" method="post" enctype="multipart/form-data">
+  <form id="convert-form" class="panel" action="/convert" method="post" enctype="multipart/form-data"
+        data-restore-options="{'1' if error is None else '0'}">
     <section class="form-section" aria-labelledby="upload-title">
       <div class="section-heading"><span class="step-number" aria-hidden="true">1</span>
         <h2 id="upload-title">Sube tu documento</h2><span class="hint">Un PDF a la vez</span></div>

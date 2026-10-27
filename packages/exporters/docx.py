@@ -20,6 +20,13 @@ from packages.document_ir.models import ContentWarning, DocumentIR, TextRun
 
 FONT_ALIASES = {'Helvetica': 'Arial', 'Times-Roman': 'Times New Roman',
                 'Times': 'Times New Roman', 'Courier': 'Courier New'}
+# Fonts we can trust python-docx's requested name to actually resolve to on a
+# typical Windows/Word install, without Word silently picking its own
+# fallback (which has unpredictable, often wider, character metrics than the
+# PDF's measured text width, overflowing positioned frames and overlapping
+# the content below - see docs/adr/0005-word-layout.md revision 2026-10-27).
+SAFE_FONTS = {'Arial', 'Times New Roman', 'Courier New', 'Calibri', 'Cambria',
+              'Georgia', 'Verdana', 'Tahoma', 'Segoe UI'}
 
 
 def _element(name, **attrs):
@@ -37,7 +44,16 @@ def _font_name(value):
     if not value:
         return 'Arial'
     base = value.split('-')[0]
-    return FONT_ALIASES.get(value, FONT_ALIASES.get(base, value))
+    mapped = FONT_ALIASES.get(value) or FONT_ALIASES.get(base)
+    if mapped:
+        return mapped
+    if value in SAFE_FONTS or base in SAFE_FONTS:
+        return value
+    # An unrecognized embedded font (custom/branded, e.g. "Lato-Bold"): Word
+    # would otherwise substitute it with its own unknown-font fallback, whose
+    # width we cannot measure or predict. Arial is always installed and its
+    # result is the one width-safety math below can actually account for.
+    return 'Arial'
 
 
 def _runs(paragraph, runs, content):
@@ -51,24 +67,57 @@ def _runs(paragraph, runs, content):
             run.font.color.rgb = RGBColor.from_string(source.color)
 
 
-def _paragraph_format(paragraph, size=10):
+def _paragraph_format(paragraph, size=10, line_height=None):
     fmt = paragraph.paragraph_format
     fmt.space_before = Pt(0)
     fmt.space_after = Pt(0)
-    fmt.line_spacing = Pt(size * 1.15)
+    fmt.line_spacing = Pt(line_height if line_height is not None else size * 1.15)
     fmt.widow_control = False
     fmt.keep_with_next = False
     fmt.keep_together = False
     paragraph._p.get_or_add_pPr().append(_element('w:snapToGrid', val=0))
 
 
-def _positioned_paragraph(output, line, page):
+def _vertical_gap_to_next_line(line, items):
+    # Smallest vertical distance to another positioned item below this one
+    # that horizontally overlaps it (same visual column), or None if nothing
+    # is below. Used to keep a line's Word frame from growing into whatever
+    # sits right beneath it.
+    box = line.location
+    best = None
+    for other in items:
+        if other is line:
+            continue
+        other_box = other.location
+        if other_box.y0 <= box.y0 + .1:
+            continue
+        if max(box.x0, other_box.x0) >= min(box.x1, other_box.x1):
+            continue
+        gap = other_box.y0 - box.y0
+        if best is None or gap < best:
+            best = gap
+    return best
+
+
+def _positioned_paragraph(output, line, page, items):
     paragraph = output.add_paragraph()
     size = max((r.font_size or 10 for r in line.runs if r.content.strip()), default=10)
-    _paragraph_format(paragraph, size)
+    natural = size * 1.15
+    gap = _vertical_gap_to_next_line(line, items)
+    # A heading or multi-line label can sit much closer to the content right
+    # below it than size*1.15 implies (PDF leading isn't proportional to font
+    # size). Word only knows the line_spacing we give it, so without this the
+    # frame grows taller than the real gap and paints over the next line.
+    line_height = natural if gap is None else max(size * .8, min(natural, gap - .5))
+    _paragraph_format(paragraph, size, line_height=line_height)
     box = line.location
     # PDF glyph bounds omit the line's leading; Word positions its line box.
-    frame = _element('w:framePr', w=_twips(min(page.width - box.x0, box.width + 5)),
+    # Extra proportional margin on top of the flat +5pt buffer: even a font we
+    # force to a safe name (see _font_name) can render a few percent wider
+    # than the original PDF glyphs at the same point size, and a width-driven
+    # wrap inside this single-line frame is exactly what causes the overlap
+    # this margin exists to prevent.
+    frame = _element('w:framePr', w=_twips(min(page.width - box.x0, box.width * 1.15 + 5)),
         x=_twips(max(0, box.x0)), y=_twips(max(0, box.y0 - size * .18)),
         hAnchor='page', vAnchor='page', wrap='none', hRule='auto',
         hSpace=0, vSpace=0)
@@ -76,9 +125,12 @@ def _positioned_paragraph(output, line, page):
     _runs(paragraph, line.runs, line.content)
 
 
+_ALLOWED_IMAGE_PREFIXES = ('data:image/png;base64,', 'data:image/jpeg;base64,')
+
+
 def _picture(anchor, image):
-    if not image.data_uri or not image.data_uri.startswith('data:image/png;base64,'):
-        raise ValueError('Word images must be self-contained sanitized PNG assets')
+    if not image.data_uri or not image.data_uri.startswith(_ALLOWED_IMAGE_PREFIXES):
+        raise ValueError('Word images must be self-contained sanitized PNG or JPEG assets')
     data = base64.b64decode(image.data_uri.split(',', 1)[1], validate=True)
     if len(data) > 12 * 1024 * 1024:
         raise ValueError('Word image exceeds size limit')
@@ -244,7 +296,7 @@ def export_docx(document: DocumentIR, *, include_warnings: bool = False) -> byte
             if hasattr(item, 'cells'):
                 _table(output, item, positioned, any(i.kind == 'graphics' for i in page.images))
             elif positioned:
-                _positioned_paragraph(output, item, page)
+                _positioned_paragraph(output, item, page, items)
             else:
                 paragraph = output.add_paragraph()
                 _paragraph_format(paragraph)

@@ -103,7 +103,11 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                         page.warnings.append(warning('TABLE_DECORATION_FILTERED',
                             'Decorative fill edges were excluded from the table grid; extracted character multiplicities were preserved.', number))
                 for index, found in enumerate(found_tables, 1):
-                    rows = found.extract()
+                    # pdfplumber's own default (x_tolerance=3) misses real word
+                    # gaps in small-font tables with no explicit space glyphs
+                    # (seen on a real SAT "Constancia de Situacion Fiscal":
+                    # 8pt text, ~2.2pt word gaps) and merges words together.
+                    rows = found.extract(x_tolerance=1)
                     if not rows:
                         continue
                     cells = []

@@ -891,6 +891,126 @@ ni `apps/worker/`). Resuelve el pendiente de borrado/TTL anotado el
 2026-10-23. Fuera de alcance, explícitamente: cuentas reales, JWT, base de
 datos, Celery/RabbitMQ — eso sigue siendo F1.
 
+## Corrección: texto superpuesto en Word por sustitución de fuente — 2026-10-27
+
+El usuario probó el MVP desplegado con un comprobante bancario real propio
+(fuera del corpus, no incorporado a Git) y reportó texto superpuesto: el
+título se encimaba con el folio, y el nombre de la empresa (dos líneas) se
+encimaba con la dirección. Se investigó antes de corregir: la primera
+hipótesis (espaciado fijo `size*1.15` entre líneas posicionadas, sin
+considerar la distancia real al siguiente elemento) resultó real pero no
+suficiente — corregida con un límite basado en la distancia observada al
+siguiente elemento (`apps/exporters/docx.py::_vertical_gap_to_next_line`),
+verificada con una prueba sintética, pero el documento real seguía mostrando
+la superposición al renderizarlo en Word de verdad.
+
+La causa real: la fuente incrustada del PDF (`Lato-Bold`) no estaba en el
+mapa de alias de fuentes y se pedía a Word por su nombre literal; Word la
+sustituye con un reemplazo propio más ancho que el medido en el PDF, y el
+texto se envuelve a una segunda línea dentro de su marco de una sola línea.
+Corrección: toda fuente no reconocida cae de forma determinista en Arial
+(en vez de dejar la sustitución al azar de Word), y el margen de ancho del
+marco pasa de +5pt fijo a +15% proporcional. La advertencia
+`DOCX_FONT_SUBSTITUTED` ahora también cubre estas fuentes no estándar,
+corrigiendo una omisión de transparencia (antes solo se registraba para
+Helvetica/Times/Courier, aunque Word ya sustituía otras fuentes en silencio).
+
+Verificado en tres niveles: pruebas sintéticas nuevas en
+`tests/unit/test_docx_layout.py` (espaciado y sustitución de fuente, suite
+completa 97 passed/1 skipped); re-exportación del documento real del
+usuario con geometría verificada por código (sin superposición medida); y
+render real en Microsoft Word (COM, `ExportAsFixedFormat`) del documento
+real, confirmado visualmente sin superposición. Evidencia privada en
+`.generated/docx-review/`, no incorporada a Git ni al corpus. Decisión
+registrada en ADR 0005 (revisión 2026-10-27). F0-04 sigue `partial/pending`;
+no se declara una nueva validación representativa ni se cierra el Gate F0.
+
+## Corrección: palabras unidas sin espacio en texto de fuente pequeña — 2026-10-27
+
+El usuario probó un segundo documento real (una Constancia de Situación
+Fiscal del SAT, fuera del corpus, no incorporada a Git) y reportó palabras
+pegadas sin espacio tanto en una celda de tabla como en un párrafo de texto
+corrido. Causa: el PDF posiciona cada palabra sin un glifo de espacio real
+entre ellas; el hueco visual real (~2.2-2.9 pt a 8 pt) es menor que el
+`x_tolerance=3` por defecto de pdfplumber. Corregido en tres puntos
+consistentes entre sí: `found.extract(x_tolerance=1)` en
+`packages/converters/digital.py`, un umbral proporcional al tamaño de
+fuente en `styled_runs` (`packages/converters/layout.py`), y la misma
+fórmula en el texto de referencia que usa la reconciliación de
+`styled_runs` — los tres tenían que coincidir, porque corregir solo
+`styled_runs` no bastaba: su propio mecanismo de seguridad (pensado para
+ligaduras/RTL) descartaba el resultado correcto por no coincidir con un
+texto de referencia que seguía teniendo el mismo error.
+
+Verificado contra las dos páginas completas del documento real del usuario
+(evidencia privada en `.generated/docx-review/`, no incorporada a Git ni al
+corpus) y con render real en Microsoft Word (COM): texto correctamente
+separado en la tabla de actividades económicas y en los párrafos de aviso
+de privacidad. Prueba nueva en `tests/unit/test_docx_layout.py` que
+reproduce el hueco real sin glifo de espacio, confirmada roja sin el fix y
+verde con él. Suite completa: 98 passed, 1 skipped. Decisión registrada en
+ADR 0005 (revisión 2026-10-27). F0-04 sigue `partial/pending`.
+
+## Recordar la última configuración de conversión — 2026-10-27
+
+Pedido directo del usuario: que "Convertir otro PDF" recuerde la
+configuración de la conversión anterior (formatos, páginas, OCR, anexo de
+Word) en vez de volver siempre a los valores por defecto. Implementado del
+lado del cliente con `localStorage` (mismo patrón ya usado para el tema
+claro/oscuro en `theme.js`), sin estado nuevo en el servidor: `app.js`
+guarda las opciones al enviar el formulario y las restaura en una carga
+limpia de `/` (`data-restore-options="1"`); la página de error sigue
+preservando del lado del servidor lo que el usuario acaba de escribir
+(`data-restore-options="0"`), sin que el restaurado del cliente lo
+sobrescriba.
+
+Durante la verificación en navegador real se encontró y corrigió un
+problema independiente: el navegador cacheaba `app.js`/`style.css` después
+de una actualización del servidor, ejecutando código de cliente obsoleto de
+forma silenciosa. Se agregó un parámetro de caché ligado a `APP_VERSION`
+(`/assets/app.js?v=0.3.0`) en `shell.html`, para que cualquier cambio futuro
+de JS/CSS se refleje de inmediato en vez de depender de que el usuario
+refresque manualmente.
+
+Verificado end-to-end en navegador real (subida, selección de un solo
+formato, conversión, clic en "Convertir otro PDF", confirmación de que el
+formulario recuerda exactamente esa selección) y con 2 pruebas HTTP nuevas.
+Suite completa: 100 passed, 1 skipped. Sin impacto en F0-04 ni en el Gate F0.
+
+## Corrección: documentos escaneados largos se quedaban en blanco — 2026-10-27
+
+El usuario probó un tercer documento real (un periódico de 32 páginas
+escaneado, sin texto digital, fuera del corpus, no incorporado a Git) y
+reportó que la conversión a Word "solo alcanzó" unas pocas páginas. Causa
+real: cada página sin texto se preserva como imagen de respaldo
+(`scanned_page`, ya marcada `OCR_REQUIRED`) codificada como PNG sin pérdida;
+para contenido fotográfico esto pesaba ~6 MB por página, y el presupuesto
+compartido de imágenes por documento (48 MB) se agotaba tras la página 8 —
+las páginas siguientes quedaban totalmente vacías (sin texto por ser
+escaneo, sin imagen por presupuesto excedido).
+
+Corrección: `scanned_page` ahora se codifica como JPEG calidad 85 (una copia
+visual de respaldo, no texto autoritativo — la pérdida de calidad no
+compromete nada que el documento reclame como exacto), reduciendo el peso
+por página ~5x; el presupuesto compartido sube de 48 MB a 150 MB como margen
+adicional. Las imágenes incrustadas normales y la capa de gráficos siguen en
+PNG. Nota aparte (no un bug): el primer intento del usuario con este mismo
+archivo solo procesó la página 1 porque el campo "Páginas" tenía "1"
+precargado por la función de "recordar configuración" recién añadida, con un
+valor que había quedado de una prueba anterior en el mismo navegador — vale
+la pena revisar ese campo antes de convertir un documento nuevo.
+
+Verificado con el documento real completo: extracción de las 32 páginas con
+imagen (antes 8/32), sin advertencias de presupuesto excedido, y render real
+en Microsoft Word confirmando contenido correcto en todas las páginas,
+incluida la última. Prueba nueva en `tests/unit/test_docx_layout.py` que
+reproduce la proporción de tamaño real (PNG ~770KB vs JPEG ~98KB a la misma
+resolución) con un presupuesto reducido, confirmada roja sin el fix y verde
+con él. Suite completa: 101 passed, 1 skipped. Decisión registrada en ADR
+0005 (revisión 2026-10-27). F0-04 sigue `partial/pending`; este hallazgo
+confirma además que el soporte de documentos escaneados largos no estaba
+cubierto por la validación previa de tres diseños (todos digitales).
+
 ## Calendario anterior (referencia histórica)
 
 **Fecha Planeada:** 2026-10-14 (después de completar P01)  

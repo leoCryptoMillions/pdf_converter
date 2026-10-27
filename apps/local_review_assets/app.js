@@ -9,8 +9,46 @@ if (form) {
   const pages = form.querySelector('#pages');
   const formats = [...form.querySelectorAll('[name="formats"]')];
   const ocr = form.querySelector('#ocr');
+  const docxWarnings = form.querySelector('#docx-warnings');
   const submit = form.querySelector('[type="submit"]');
   let busy = false;
+
+  // Remember the last submitted options (formats, pages, OCR, Word annex) so
+  // "Convertir otro PDF" starts from where the user left off instead of the
+  // hardcoded defaults. Only restore on a fresh form load (data-restore-options
+  // is "0" when the server just re-rendered the user's own input after a
+  // validation error, which must win over anything saved here).
+  const OPTIONS_KEY = 'pdf-converter:last-options';
+  if (form.dataset.restoreOptions === '1') {
+    try {
+      const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) || 'null');
+      if (saved) {
+        if (Array.isArray(saved.formats) && saved.formats.length) {
+          formats.forEach(input => { input.checked = saved.formats.includes(input.value); });
+        }
+        if (typeof saved.pages === 'string') pages.value = saved.pages;
+        if (typeof saved.ocr === 'boolean') ocr.checked = saved.ocr;
+        if (docxWarnings && typeof saved.docxWarnings === 'boolean') docxWarnings.checked = saved.docxWarnings;
+      }
+    } catch {
+      // Browser storage is optional; the form still works with its defaults.
+    }
+    updateFormats();
+    validatePages();
+  }
+
+  function saveOptions() {
+    try {
+      localStorage.setItem(OPTIONS_KEY, JSON.stringify({
+        formats: formats.filter(input => input.checked).map(input => input.value),
+        pages: pages.value,
+        ocr: ocr.checked,
+        docxWarnings: docxWarnings ? docxWarnings.checked : false,
+      }));
+    } catch {
+      // A rejected write must not block the conversion itself.
+    }
+  }
 
   function fieldError(input, id, message) {
     const element = document.getElementById(id);
@@ -109,6 +147,7 @@ if (form) {
   form.addEventListener('submit', event => {
     if (busy) { event.preventDefault(); return; }
     if (!validatePages() || !form.reportValidity()) { event.preventDefault(); return; }
+    saveOptions();
     busy = true;
     form.setAttribute('aria-busy', 'true');
     submit.disabled = true;

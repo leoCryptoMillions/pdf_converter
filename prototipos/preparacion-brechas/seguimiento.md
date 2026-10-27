@@ -281,6 +281,73 @@ el worker de F1. `verification_coverage` **18% (2/11)** y
 de borrado/TTL de `.generated/web_ui/` anotado el 2026-10-23 (no rastreado
 como una de las 11 áreas, por lo que no mueve esos indicadores).
 
+## Corrección de texto superpuesto en Word por sustitución de fuente (2026-10-27)
+
+El usuario probó el MVP desplegado con un comprobante bancario real propio
+(fuera del corpus, no incorporado a Git) y reportó, con una captura de
+pantalla comparando el PDF original con el Word generado, texto superpuesto:
+el título se encimaba con el folio, y el nombre de la empresa (dos líneas)
+con la dirección. Investigación antes de corregir: la primera hipótesis
+(espaciado fijo entre líneas posicionadas) resultó real pero insuficiente —
+corregida, probada con un caso sintético, y el documento real del usuario
+SEGUÍA mostrando la superposición al renderizarlo en Word real, revelando
+que la causa raíz era otra.
+
+| Fecha | Tarea | Áreas afectadas | Fuentes/evidencia | Verificación | Decisión pendiente |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Diagnosticar y corregir texto superpuesto en Word (dos causas reales distintas) | F0-04 (nota añadida, sin cambio de `implementation_status=partial`/`verification_status=pending`/`decision_status=pending`) | `packages/exporters/docx.py` (fuentes no reconocidas forzadas a Arial; margen de ancho de marco +15% proporcional; límite de espaciado por distancia real al siguiente elemento); `docs/adr/0005-word-layout.md` (revisión 2026-10-27); `tests/unit/test_docx_layout.py` (2 pruebas nuevas). SRC-25/26. | 97 pruebas unitarias/HTTP pasan (suite completa). Reproducción sintética del espaciado (prueba roja antes de corregir, verde después). Causa real confirmada y corregida contra el documento real del usuario: geometría sin superposición verificada por código, y render real en Microsoft Word (COM, `ExportAsFixedFormat`) confirmado visualmente sin superposición, sobre el mismo documento donde el usuario vio el bug. Evidencia privada en `.generated/docx-review/`, no incorporada a Git ni al corpus. | Ninguna bloqueante para este fix puntual. La validación previa de tres diseños (2026-10-27, revisión anterior) no cubría fuentes incrustadas no estándar — otros diseños reales podrían revelar brechas similares no cubiertas todavía; no se amplía la muestra representativa por este cambio. |
+
+Sin impacto en el cierre de las brechas: F0-04 conserva
+`partial/pending/pending`. Esta es una corrección de un defecto real
+encontrado por el usuario, no una validación nueva de calidad representativa
+ni una aprobación de Gate F0. `verification_coverage` **18% (2/11)** y
+`decision_coverage` **27% (3/11)**, sin cambios.
+
+## Corrección de palabras unidas sin espacio en texto de fuente pequeña (2026-10-27)
+
+El usuario probó un segundo documento real (una Constancia de Situación
+Fiscal del SAT, fuera del corpus, no incorporada a Git) y reportó, con una
+captura de pantalla, palabras pegadas sin espacio: en una celda de tabla
+("Sociedadesfinancierasdeobjetomúltiple") y en un párrafo de texto corrido
+sobre protección de datos. Durante la investigación se verificó primero,
+por error, un posible problema de codificación del carácter "ú" — resultó
+ser un artefacto de la propia terminal de depuración (codepage cp1252 de
+Windows/bash), no un dato corrupto real; se confirmó verificando los
+codepoints directamente (`ord()`), sin depender de `print()`.
+
+| Fecha | Tarea | Áreas afectadas | Fuentes/evidencia | Verificación | Decisión pendiente |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Diagnosticar y corregir palabras unidas sin espacio (umbral de tolerancia insuficiente para fuentes pequeñas sin glifo de espacio real) | F0-04 (nota añadida, sin cambio de `implementation_status=partial`/`verification_status=pending`/`decision_status=pending`) | `packages/converters/digital.py` (`found.extract(x_tolerance=1)`); `packages/converters/layout.py` (umbral proporcional al tamaño de fuente en `styled_runs` y en el texto de referencia de su reconciliación); `docs/adr/0005-word-layout.md` (revisión 2026-10-27); `tests/unit/test_docx_layout.py` (1 prueba nueva). SRC-27/28. | 98 pruebas unitarias/HTTP pasan (suite completa). Reproducción sintética confirmada roja sin el fix y verde con él (`git stash` de los dos archivos corregidos). Verificado contra las dos páginas completas del documento real del usuario: geometría/contenido correcto por código y render real en Microsoft Word (COM) confirmado visualmente, tanto en la tabla de actividades económicas como en los párrafos de aviso de privacidad. Evidencia privada en `.generated/docx-review/`, no incorporada a Git ni al corpus. | Ninguna bloqueante para este fix puntual. Confirma que la validación previa de tres diseños tampoco cubría texto sin glifos de espacio reales (un patrón común en PDFs gubernamentales/administrativos) — no se amplía la muestra representativa por este cambio. |
+
+Sin impacto en el cierre de las brechas: F0-04 conserva
+`partial/pending/pending`. Esta es una corrección de un defecto real
+encontrado por el usuario, no una validación nueva de calidad representativa
+ni una aprobación de Gate F0. `verification_coverage` **18% (2/11)** y
+`decision_coverage` **27% (3/11)**, sin cambios.
+
+## Corrección de documentos escaneados largos que quedaban en blanco (2026-10-27)
+
+El usuario probó un tercer documento real (un periódico de 32 páginas
+completamente escaneado, sin texto digital, fuera del corpus, no
+incorporado a Git) y reportó que la conversión a Word "solo alcanzó" unas
+pocas páginas. Investigación: se comparó la carpeta de dos intentos reales
+en `.generated/web_ui/` — el primero solo procesó la página 1 (campo
+"Páginas" con "1" precargado por la función de recordar configuración,
+residuo de una prueba anterior en el mismo navegador, no un bug); el
+segundo procesó las 32 páginas a nivel de datos, pero al renderizarlo en
+Microsoft Word real, las páginas 9 en adelante aparecían completamente en
+blanco.
+
+| Fecha | Tarea | Áreas afectadas | Fuentes/evidencia | Verificación | Decisión pendiente |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Diagnosticar y corregir páginas en blanco en documentos escaneados largos (presupuesto de imágenes agotado) | F0-04 (nota añadida, sin cambio de `implementation_status=partial`/`verification_status=pending`/`decision_status=pending`) | `packages/converters/layout.py` (JPEG calidad 85 para scanned_page; presupuesto 48MB→150MB); `packages/exporters/docx.py` (acepta PNG o JPEG); `docs/adr/0005-word-layout.md` (revisión 2026-10-27); `tests/unit/test_docx_layout.py` (1 prueba nueva). SRC-29/30. | 101 pruebas unitarias/HTTP pasan (suite completa). Reproducción sintética confirmada roja sin el fix y verde con él (proporción de tamaño real PNG~770KB vs JPEG~98KB a la misma resolución). Verificado contra el documento real completo del usuario: 32/32 páginas con imagen (antes 8/32), sin advertencias de presupuesto excedido, y render real en Microsoft Word confirmando contenido correcto en todas las páginas, incluida la última. Evidencia privada en `.generated/docx-review/`, no incorporada a Git ni al corpus. | Ninguna bloqueante para este fix puntual. Confirma que la validación previa de tres diseños (todos digitales) no cubría documentos escaneados largos — no se amplía la muestra representativa por este cambio. El soporte de escaneados sigue fuera de la aceptación formal del piloto digital (README/ALCANCE.md). |
+
+Sin impacto en el cierre de las brechas: F0-04 conserva
+`partial/pending/pending`. Esta es una corrección de un defecto real
+encontrado por el usuario, no una validación nueva de calidad representativa
+ni una aprobación de Gate F0. `verification_coverage` **18% (2/11)** y
+`decision_coverage` **27% (3/11)**, sin cambios.
+
 ## Próxima actualización esperada
 
 Disparador según `docs/mantenimiento-dashboard.md`: antes de cerrar

@@ -53,9 +53,12 @@ h3 { font-size: 1rem; }
 .skip-link { position: absolute; left: 16px; top: -80px; padding: 12px 20px; background: var(--surface); z-index: 10; }
 .skip-link:focus { top: 8px; }
 .site-header { max-width: 1200px; margin: auto; padding: 25px 40px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.brand { display: inline-flex; align-items: center; gap: 11px; color: var(--text); text-decoration: none; font-size: 1.2rem; font-weight: 700; letter-spacing: -.04em; }
+.brand { display: inline-flex; align-items: center; gap: 11px; color: var(--text); text-decoration: none; }
+.brand-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
+.brand-name { font-size: 1.2rem; font-weight: 700; letter-spacing: -.04em; }
 .brand-light { font-weight: 400; margin-left: 3px; }
 .brand-mark { background: var(--primary); color: var(--on-primary); width: 38px; height: 42px; display: grid; place-items: center; border-radius: 10px; }
+.brand-version { font-size: .7rem; font-weight: 500; color: var(--muted); letter-spacing: 0; cursor: help; }
 .header-actions { display: flex; align-items: center; gap: 18px; }
 .theme-control { width: 132px; min-height: 44px; }
 :root:not(.js) .theme-control { display: none; }
@@ -197,7 +200,9 @@ code { font-size: .8em; overflow-wrap: anywhere; }
   .theme-toggle { padding: 10px; }
   .theme-label { display: none; }
   .site-header { padding: 20px; }
-  .brand { font-size: 1rem; gap: 8px; }
+  .brand { gap: 8px; }
+  .brand-name { font-size: 1rem; }
+  .brand-version { font-size: .65rem; }
   .brand-mark { width: 32px; height: 36px; }
   .local-badge { font-size: .7rem; gap: 5px; }
   .version { display: none; }

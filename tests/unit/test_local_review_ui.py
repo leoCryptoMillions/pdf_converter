@@ -23,6 +23,28 @@ def test_index_serves_the_upload_form():
 
 
 @pytest.mark.mvp
+def test_index_allows_client_side_restore_of_last_options():
+    # A fresh "/" load should let app.js repopulate the form from the
+    # previous conversion's remembered options (formats, pages, OCR, Word
+    # annex), so "Convertir otro PDF" doesn't reset to the hardcoded
+    # defaults. See apps/local_review_assets/app.js.
+    assert 'data-restore-options="1"' in client.get("/").text
+
+
+@pytest.mark.mvp
+def test_error_page_disables_client_side_restore_of_last_options():
+    # The server already preserves the user's just-submitted (invalid)
+    # input in the re-rendered form; client-side restore of an older
+    # remembered selection must not override it.
+    response = client.post(
+        "/convert", files={"file": ("sample.pdf", b"%PDF-", "application/pdf")},
+        data={"formats": ["docx"], "pages": "0"},
+    )
+    assert response.status_code == 400
+    assert 'data-restore-options="0"' in response.text
+
+
+@pytest.mark.mvp
 def test_convert_and_download_round_trip(synthetic_invoice):
     with synthetic_invoice.open("rb") as handle:
         response = client.post(
