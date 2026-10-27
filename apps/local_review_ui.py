@@ -1,23 +1,29 @@
 """Local, single-user web wrapper around the F0 CLI (apps/convert.py).
 
-Not the F1 web app: no auth, no database, no queue, no multi-tenancy, no
-retention/TTL policy. It runs conversions synchronously, in-process, and is
-meant to be started on your own machine and opened at 127.0.0.1 only -
-docs/PROTOTIPO_F0.md explicitly defers the real "flujo web con usuarios,
-trabajos, storage y cola" to F1. This exists purely so a user can drag a PDF
-into a browser instead of typing CLI flags; it calls the exact same
-extraction/export functions apps/convert.py does.
+Not the F1 web app: no accounts, no database, no queue, no multi-tenancy.
+Deployable on a reachable host behind HTTP Basic Auth (see AUTH_USERNAME/
+AUTH_PASSWORD below and docs/adr/0006-mvp-railway-hardening.md); each
+conversion runs isolated with a hard timeout and memory cap
+(apps/conversion_isolation.py) and generated files are swept on a TTL, since
+a single trusted user is still exposed to pathological PDFs and unbounded
+disk growth. docs/PROTOTIPO_F0.md still defers the real "flujo web con
+usuarios, trabajos, storage y cola" to F1. This exists purely so a user can
+drag a PDF into a browser instead of typing CLI flags; it calls the exact
+same extraction/export functions apps/convert.py does.
 
 Run: python -m apps.local_review_ui
 Then open http://127.0.0.1:8420/
 """
 from __future__ import annotations
 
+import asyncio
+import functools
 import html
 import os
 import re
 import secrets
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
@@ -25,7 +31,9 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.status import HTTP_400_BAD_REQUEST
 
-from packages.converters.digital import PDFValidationError, extract_digital
+from apps.conversion_isolation import (
+    CLEANUP_INTERVAL_SECONDS, RETENTION_HOURS, cleanup_loop, run_isolated,
+)
 from apps.local_review_help import contextual_templates, help_link, render_help
 
 OUTPUT_ROOT = Path(".generated/web_ui")
@@ -38,7 +46,18 @@ FORMAT_INFO = {
     "txt": ("Texto", "Sin formato"),
 }
 
-app = FastAPI(title="PDF Converter - F0 local review UI", docs_url=None, redoc_url=None)
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    cleanup_task = asyncio.create_task(
+        cleanup_loop(OUTPUT_ROOT, RETENTION_HOURS, CLEANUP_INTERVAL_SECONDS))
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+
+
+app = FastAPI(title="PDF Converter - F0 local review UI", docs_url=None, redoc_url=None,
+              lifespan=_lifespan)
 app.mount("/assets", StaticFiles(directory=ASSET_ROOT), name="assets")
 
 # Optional HTTP Basic Auth gate. Unset in local dev (README flow unchanged);
@@ -62,6 +81,17 @@ def _authorized(request: Request) -> bool:
     except Exception:
         return False
     return secrets.compare_digest(user, AUTH_USERNAME) and secrets.compare_digest(pwd, AUTH_PASSWORD)
+
+
+# One conversion at a time, matching the product's own stated model ("Un
+# usuario y un documento a la vez"). Without this, removing the old
+# accidental serialization (extract_digital used to block the single uvicorn
+# worker) would let concurrent requests each spawn their own isolated
+# subprocess, multiplying memory use. Checking .locked() then entering
+# `async with` with no `await` in between is race-free on the single-threaded
+# event loop - don't insert an `await` between the two.
+CONVERT_CONCURRENCY = int(os.environ.get("CONVERT_CONCURRENCY", "1"))
+_convert_semaphore = asyncio.Semaphore(CONVERT_CONCURRENCY)
 
 
 @app.middleware("http")
@@ -108,7 +138,8 @@ LOCAL_NOTE = f"""
   <p>La conversión se ejecuta en este servidor local, sin enviar tu PDF a un servicio externo.</p>
   <details><summary>Sobre este prototipo</summary>
     <p>Uso local, un documento a la vez. Los archivos se guardan en
-    <code>.generated/web_ui/</code> y no se borran automáticamente.</p>
+    <code>.generated/web_ui/</code> y se eliminan automáticamente pasadas
+    {int(RETENTION_HOURS)} horas.</p>
     <p>Los resultados requieren revisión frente al PDF original.</p>
   </details>
 </section>"""
@@ -269,37 +300,41 @@ async def convert(
     source_path = job_dir / "source.pdf"
     source_path.write_bytes(body)
 
-    try:
-        document = extract_digital(source_path, page_numbers=page_numbers, ocr=bool(ocr),
-                                   preserve_layout="docx" in selected_formats)
-    except PDFValidationError as exc:
-        messages = {
-            "Invalid PDF signature": "El archivo no es un PDF válido. Selecciona otro documento.",
-            "Encrypted PDFs are unsupported": "El PDF está protegido. Usa una copia sin contraseña.",
-            "PDF exceeds page limit or has no pages": "El PDF debe tener entre 1 y 100 páginas.",
-            "Invalid selected pages": "Alguna página no existe en el PDF. Revisa los números e inténtalo de nuevo.",
-            "PDF could not be parsed": "No se pudo leer este PDF. Comprueba que abre correctamente o usa otra copia.",
-        }
-        return failure(f"Conversión falló: {messages.get(str(exc), str(exc))}")
+    # No `await` between this check and entering the `async with` below: on
+    # the single-threaded event loop that makes the check-then-acquire
+    # atomic, so a second concurrent request reliably gets the friendly
+    # "busy" response instead of silently queuing behind the first.
+    if _convert_semaphore.locked():
+        return failure("Ya hay una conversión en curso. Este prototipo procesa un documento "
+                        "a la vez: inténtalo de nuevo en unos segundos.")
+    async with _convert_semaphore:
+        loop = asyncio.get_running_loop()
+        summary = await loop.run_in_executor(None, functools.partial(
+            run_isolated, job_dir, source_path, page_numbers=page_numbers, ocr=bool(ocr),
+            selected_formats=frozenset(selected_formats), docx_warnings=bool(docx_warnings)))
 
-    artifacts: dict[str, bytes] = {}
-    try:
-        if "xlsx" in selected_formats:
-            from packages.exporters.xlsx import export_xlsx
-            artifacts["result.xlsx"] = export_xlsx(document)
-        if "docx" in selected_formats:
-            from packages.exporters.docx import export_docx
-            artifacts["result.docx"] = export_docx(document, include_warnings=bool(docx_warnings))
-        if "txt" in selected_formats:
-            artifacts["result.txt"] = document.get_all_text().encode("utf-8")
-    except ValueError:
-        return failure("No se pudo exportar el contenido al formato elegido sin perder información. Prueba con TXT o con menos páginas.")
+    if not summary.ok:
+        if summary.error_kind == "validation":
+            messages = {
+                "Invalid PDF signature": "El archivo no es un PDF válido. Selecciona otro documento.",
+                "Encrypted PDFs are unsupported": "El PDF está protegido. Usa una copia sin contraseña.",
+                "PDF exceeds page limit or has no pages": "El PDF debe tener entre 1 y 100 páginas.",
+                "Invalid selected pages": "Alguna página no existe en el PDF. Revisa los números e inténtalo de nuevo.",
+                "PDF could not be parsed": "No se pudo leer este PDF. Comprueba que abre correctamente o usa otra copia.",
+            }
+            return failure(f"Conversión falló: {messages.get(summary.error_message, summary.error_message)}")
+        if summary.error_kind == "export_value_error":
+            return failure("No se pudo exportar el contenido al formato elegido sin perder información. "
+                            "Prueba con TXT o con menos páginas.")
+        if summary.error_kind == "timeout":
+            return failure("El PDF tardó demasiado en procesarse. Prueba con menos páginas o un "
+                            "documento más simple.")
+        if summary.error_kind == "memory":
+            return failure("El PDF requiere más memoria de la disponible para procesarse. "
+                            "Prueba con menos páginas.")
+        return failure("Ocurrió un error inesperado al convertir el archivo. Inténtalo de nuevo.")
 
-    artifacts["document.ir.json"] = document.model_dump_json(indent=2).encode("utf-8")
-    for name, data in artifacts.items():
-        (job_dir / name).write_bytes(data)
-
-    warnings = document.warnings + [w for p in document.pages for w in p.warnings]
+    warnings = summary.warnings
     friendly_warnings = {
         "UNVALIDATED_EXTRACTION": "Compara los archivos con el PDF original: la calidad de extracción aún no se ha verificado.",
         "OCR_REQUIRED": "Esta página no tiene texto extraíble. Vuelve a convertir con reconocimiento de texto (OCR) activado.",
@@ -315,24 +350,24 @@ async def convert(
         "EMPTY_PAGE": "Esta página no contiene texto ni elementos gráficos detectados.",
     }
     warning_items = "".join(
-        f'<li><span class="warning-page">Página {w.page_number}</span>'
-        f'<p>{html.escape(friendly_warnings.get(w.code, w.message))}</p>'
+        f'<li><span class="warning-page">Página {w["page_number"]}</span>'
+        f'<p>{html.escape(friendly_warnings.get(w["code"], w["message"]))}</p>'
         f'<details><summary>Detalle técnico</summary><div class="technical-detail">'
-        f'<code>{html.escape(w.code)}</code> · {html.escape(w.message)}</div></details></li>'
+        f'<code>{html.escape(w["code"])}</code> · {html.escape(w["message"])}</div></details></li>'
         for w in warnings
     )
     downloads = "".join(
         f'<div class="action-with-help download-row"><a class="download-card" href="/download/{job_id}/result.{ext}" aria-label="Descargar {info[0]}" data-help-action="{ext}" download>'
         f'<span class="file-symbol" aria-hidden="true">{ext.upper()}</span>'
         f'<span class="file-info"><strong>Descargar {info[0]}</strong>'
-        f'<span class="hint">.{ext} · {len(artifacts[f"result.{ext}"]) / 1024:.1f} KB</span></span>'
+        f'<span class="hint">.{ext} · {(job_dir / f"result.{ext}").stat().st_size / 1024:.1f} KB</span></span>'
         f'{icon("download")}</a>{help_link(ext)}</div>'
         for ext, info in FORMAT_INFO.items() if ext in selected_formats
     )
-    text = document.get_all_text()
-    preview = (f'<pre class="text-preview" tabindex="0" aria-label="Texto extraído">{html.escape(text[:6000])}</pre>'
-               if text.strip() else '<p class="hint">No se extrajo texto. Si el PDF es un escaneo, vuelve a convertir con OCR activado.</p>')
-    preview_note = '<p class="hint field-hint">Vista limitada a 6 000 caracteres. Consulta el texto completo en los archivos de salida.</p>' if len(text) > 6000 else ''
+    preview = (f'<pre class="text-preview" tabindex="0" aria-label="Texto extraído">{html.escape(summary.text_preview)}</pre>'
+               if summary.text_preview.strip() else '<p class="hint">No se extrajo texto. Si el PDF es un escaneo, vuelve a convertir con OCR activado.</p>')
+    preview_note = ('<p class="hint field-hint">Vista limitada a 6 000 caracteres. Consulta el texto completo en los archivos de salida.</p>'
+                     if summary.text_truncated else '')
     body_html = f"""
 <div class="result-heading">
   <div class="intro"><p class="eyebrow">CONVERSIÓN COMPLETADA</p>
@@ -342,8 +377,8 @@ async def convert(
 <div class="review-banner">{icon('warning')}<div><strong>Archivos generados. Revisión pendiente.</strong>
   <p>Comprueba el contenido frente al PDF original antes de utilizarlo. Estado: <code>needs_review</code>.</p></div>{help_link('review')}</div>
 <div class="metrics" aria-label="Resumen del resultado">
-  <div class="panel metric"><strong>{len(document.pages)} <span>/ {document.page_count}</span></strong><span>Páginas procesadas</span></div>
-  <div class="panel metric"><strong>{len(document.get_all_tables())}</strong><span>Tablas detectadas</span></div>
+  <div class="panel metric"><strong>{summary.pages_processed} <span>/ {summary.page_count}</span></strong><span>Páginas procesadas</span></div>
+  <div class="panel metric"><strong>{summary.table_count}</strong><span>Tablas detectadas</span></div>
   <div class="panel metric"><strong>{len(selected_formats)}</strong><span>Archivos de salida</span></div>
 </div>
 <div class="workspace">

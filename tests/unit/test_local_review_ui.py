@@ -175,3 +175,35 @@ def test_error_preserves_word_annex_preference():
         data={'formats': ['docx'], 'pages': '0', 'docx_warnings': '1'})
     assert response.status_code == 400
     assert 'name="docx_warnings" value="1" checked' in response.text
+
+
+@pytest.mark.mvp
+def test_convert_busy_response_when_a_conversion_is_already_running():
+    import asyncio
+    asyncio.run(local_review_ui._convert_semaphore.acquire())  # Semaphore.release() is sync; no loop needed to undo it.
+    try:
+        response = client.post(
+            "/convert", files={"file": ("sample.pdf", b"%PDF-", "application/pdf")},
+            data={"formats": ["txt"]},
+        )
+        assert response.status_code == 400
+        assert "Ya hay una conversión en curso" in response.text
+    finally:
+        local_review_ui._convert_semaphore.release()
+
+
+@pytest.mark.mvp
+def test_convert_surfaces_friendly_timeout_message(monkeypatch, synthetic_invoice):
+    from apps.conversion_isolation import ConversionSummary
+
+    def fake_run_isolated(*args, **kwargs):
+        return ConversionSummary(ok=False, error_kind="timeout", error_message="conversion exceeded 90s")
+
+    monkeypatch.setattr(local_review_ui, "run_isolated", fake_run_isolated)
+    with synthetic_invoice.open("rb") as handle:
+        response = client.post(
+            "/convert", files={"file": ("source.pdf", handle, "application/pdf")},
+            data={"formats": ["txt"]},
+        )
+    assert response.status_code == 400
+    assert "tardó demasiado" in response.text

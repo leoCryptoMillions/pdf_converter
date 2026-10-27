@@ -260,6 +260,27 @@ en `docs/AVANCE.md`. Sin impacto adicional en las brechas: se conservan
 La evidencia vigente para este cierre es la corrida de 21 pruebas HTTP y
 el recorrido Chromium ya registrado; este guardado no acredita pruebas nuevas.
 
+## Despliegue en Railway y endurecimiento (2026-10-27)
+
+Pedido del usuario: desplegar `apps.local_review_ui` en Railway. No existía
+ninguna decisión documentada previa de exponer este prototipo en red — se
+investigó primero con tres agentes de exploración en paralelo y un agente
+de diseño antes de escribir código, en vez de asumir que estaba listo para
+red por tratarse ya de un servidor FastAPI funcional.
+
+| Fecha | Tarea | Áreas afectadas | Fuentes/evidencia | Verificación | Decisión pendiente |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Desplegar el MVP en Railway con HTTP Basic Auth y endurecer con aislamiento por subproceso, timeout, límite de memoria y TTL | F0-06 y F0-07 (notas añadidas, sin cambio de `implementation_status`/`verification_status`/`decision_status` — no es avance de F1, ver notas en `index.html`) | `apps/conversion_isolation.py` (nuevo); `apps/local_review_ui.py` (Basic Auth opcional, semáforo de concurrencia, startup de limpieza); `infra/docker/Dockerfile.mvp-web` (nuevo); `docs/adr/0006-mvp-railway-hardening.md`; `docs/ALCANCE.md`/`docs/AVANCE.md`/`docs/SEGURIDAD.md` actualizados. SRC-23/24. | `tests/unit/test_conversion_isolation.py` (5 passed, 1 skipped en Windows por `RLIMIT_AS`): timeout real que mata el subproceso (sin mock del mecanismo, solo constantes de tiempo acortadas), límite de memoria real en POSIX, limpieza TTL con `os.utime`. Dos pruebas nuevas en `tests/unit/test_local_review_ui.py`: respuesta de "conversión en curso" y mensaje de timeout. Suite completa: 95 passed, 1 skipped. Servidor real (`python -m apps.local_review_ui`, no `TestClient`) probado con `curl` subiendo un PDF del corpus: conversión completa sin cambios de comportamiento. Verificación HTTP del despliegue en vivo: 401 sin credenciales, 200 con credenciales correctas. | Ninguna bloqueante para este cambio. Fuera de alcance, por decisión explícita del usuario: cuentas reales, JWT, base de datos, Celery/RabbitMQ — eso sigue siendo F1, ya trackeado aparte. |
+
+Sin impacto en el cierre de las brechas: F0-06 y F0-07 conservan
+`implementation_status=partial`, `verification_status=not_verified` — el
+aislamiento añadido es un mecanismo local (`multiprocessing`, sin broker ni
+cola) para el wrapper de un solo usuario, no una implementación de la API o
+el worker de F1. `verification_coverage` **18% (2/11)** y
+`decision_coverage` **27% (3/11)**, sin cambios. Resuelve, sí, el pendiente
+de borrado/TTL de `.generated/web_ui/` anotado el 2026-10-23 (no rastreado
+como una de las 11 áreas, por lo que no mueve esos indicadores).
+
 ## Próxima actualización esperada
 
 Disparador según `docs/mantenimiento-dashboard.md`: antes de cerrar

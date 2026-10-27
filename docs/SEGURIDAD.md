@@ -6,6 +6,22 @@ Documento que especifica el modelo de seguridad del conversor PDF, amenazas iden
 **Fecha:** 2026-10-07  
 **Última Actualización:** 2026-10-07
 
+> **Nota de reconciliación (2026-10-27):** este documento describe la
+> arquitectura objetivo F1+ (worker aislado con cgroups, cola, base de
+> datos, autenticación por usuario, multi-tenencia). El MVP realmente
+> desplegado hoy — `apps/local_review_ui.py`, publicado en Railway, ver
+> [ADR 0006](adr/0006-mvp-railway-hardening.md) — es un prototipo de un
+> solo usuario de confianza. Controles que **sí existen** en ese despliegue:
+> HTTP Basic Auth (credenciales en variables de entorno, no por usuario),
+> aislamiento por subproceso con timeout duro y límite de memoria
+> best-effort (`apps/conversion_isolation.py`, no Docker/cgroups), un
+> semáforo de concurrencia de 1 conversión a la vez, y limpieza TTL de
+> archivos generados. Controles que **siguen pendientes** de F1 y que las
+> secciones siguientes describen como si ya existieran: autenticación por
+> usuario/JWT, base de datos, cola Celery/RabbitMQ, aislamiento real por
+> contenedor con cgroups, multi-tenencia y los controles de acceso de la
+> sección 4.2. No leer las secciones de abajo como estado actual del MVP.
+
 ## 1. Principios de Seguridad
 
 1. **Defensa en profundidad**: Múltiples capas de control; ninguna es suficiente por sí sola

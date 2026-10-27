@@ -669,7 +669,8 @@ un navegador real, y con una conversión de extremo a extremo por `curl`
 (`python-docx` también se instaló, antes faltaba y causaba 3 fallos
 preexistentes de la suite relacionados con DOCX, ya resueltos).
 
-Pendiente, no bloqueante: sin borrado/TTL de `.generated/web_ui/`.
+Pendiente entonces, no bloqueante: sin borrado/TTL de `.generated/web_ui/`.
+Resuelto el 2026-10-27 — ver «Despliegue en Railway y endurecimiento» más abajo.
 
 ## UX del wrapper y prácticas adaptadas de conta01 — 2026-10-23
 
@@ -754,7 +755,8 @@ abrir `http://127.0.0.1:8421/` o `/ayuda`. El arranque habitual con
 
 El siguiente trabajo de producto debe elegirse de los pendientes reales de
 F0; esta mejora de conveniencia no resuelve el Gate F0 ni adelanta F1.
-Siguen pendientes el borrado/TTL local y las brechas descritas en el dashboard.
+El borrado/TTL local se resolvió el 2026-10-27 (ver más abajo); siguen
+pendientes las demás brechas descritas en el dashboard.
 
 ## Word con diseño, imágenes y estilos — 2026-10-26
 
@@ -844,6 +846,50 @@ referencias sigue pendiente y no se promovió ninguna anotación automática
 a ground truth verificado. F0-04 conserva partial/pending/pending; F0-11
 sigue pendiente. No se amplía el corpus ni se acredita F1. Indicadores:
 verificación 18% (2/11), decisiones 27% (3/11). Tablero y fuentes conciliados.
+
+## Despliegue en Railway y endurecimiento — 2026-10-27
+
+Pedido del usuario: desplegar el MVP local en Railway. No existía ninguna
+decisión documentada de exponer `apps.local_review_ui` en red — el prototipo
+nació explícitamente `127.0.0.1`-only, sin cuentas ni controles de red.
+Antes de desplegar se añadió HTTP Basic Auth opcional (gateada por
+`AUTH_USERNAME`/`AUTH_PASSWORD`; sin efecto en el flujo local sin esas
+variables) y un `Dockerfile.mvp-web` dedicado, ligero, separado de los
+Dockerfiles de la plataforma F1. Servicio en vivo:
+https://mvp-web-production.up.railway.app (proyecto `pdf-converter-mvp`).
+
+Antes de dar por cerrado el despliegue se investigó el riesgo real con tres
+agentes de exploración en paralelo y un agente de diseño: `extract_digital`
+no tenía timeout ni límite de memoria en ningún punto del parseo, el handler
+`/convert` bloqueaba en línea el único proceso de uvicorn, y
+`.generated/web_ui/` no tenía ninguna limpieza. El usuario confirmó mantener
+el alcance de un solo usuario de confianza (sin cuentas reales — eso sigue
+siendo F1) y pidió endurecer solo aislamiento/timeout y TTL.
+
+Se añadió `apps/conversion_isolation.py`: cada conversión corre en un
+subproceso nuevo (`multiprocessing`, `spawn`) con timeout duro
+(`CONVERT_TIMEOUT_SECONDS=90` por defecto, terminate → gracia → kill),
+límite de memoria best-effort (`RLIMIT_AS`, no-op en Windows), un semáforo
+de concurrencia (`CONVERT_CONCURRENCY=1`) y limpieza TTL periódica
+(`RETENTION_HOURS=24`, `CLEANUP_INTERVAL_SECONDS=3600`) de los directorios
+de trabajo. Decisión registrada en
+[ADR 0006](adr/0006-mvp-railway-hardening.md).
+
+Verificado con pruebas reales, sin mocks del mecanismo bajo prueba (solo se
+acortan las constantes de tiempo): `tests/unit/test_conversion_isolation.py`
+(timeout real que mata el subproceso, límite de memoria real en POSIX,
+limpieza TTL con `os.utime`) y dos pruebas nuevas en
+`tests/unit/test_local_review_ui.py` (respuesta de "conversión en curso" con
+el semáforo tomado, mensaje de timeout). Suite completa: **95 passed, 1
+skipped** (la prueba de memoria se salta en Windows, donde `RLIMIT_AS` no
+existe). Además, servidor real (`python -m apps.local_review_ui`, no
+TestClient) probado con `curl` subiendo un PDF del corpus: conversión
+completa de extremo a extremo sin cambios de comportamiento para el usuario.
+
+Sin impacto en F0-06/F0-07 (siguen siendo skeleton, no se tocó `apps/api/`
+ni `apps/worker/`). Resuelve el pendiente de borrado/TTL anotado el
+2026-10-23. Fuera de alcance, explícitamente: cuentas reales, JWT, base de
+datos, Celery/RabbitMQ — eso sigue siendo F1.
 
 ## Calendario anterior (referencia histórica)
 

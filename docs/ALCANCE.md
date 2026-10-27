@@ -15,14 +15,25 @@ el Gate F0 ni implementada la plataforma F1.
 
 Incluye carga de un PDF digital, selección de páginas, conversión a DOCX y
 XLSX, TXT existente, advertencias y descarga. Se reutiliza la interfaz de
-`apps.local_review_ui`, limitada a `127.0.0.1`, con 25 MB y 100 páginas por
-PDF. No se añaden dependencias de React, base de datos ni cola.
+`apps.local_review_ui`, con 25 MB y 100 páginas por PDF. No se añaden
+dependencias de React, base de datos ni cola.
+
+Desde el 2026-10-27, la misma interfaz también se despliega en Railway
+(https://mvp-web-production.up.railway.app) para un solo usuario de
+confianza, detrás de HTTP Basic Auth — ver
+[ADR 0006](adr/0006-mvp-railway-hardening.md). El uso local en `127.0.0.1`
+sigue disponible y sin autenticación (README); el despliegue remoto añade
+aislamiento por subproceso, timeout y límite de memoria por conversión
+(`apps/conversion_isolation.py`), concurrencia de 1 conversión a la vez y
+limpieza TTL de `.generated/web_ui/` — ninguno de estos controles sustituye
+cuentas reales ni multi-tenencia, que siguen fuera de alcance.
 
 Se posponen cuentas, organizaciones, cuotas, lotes, concurrencia de usuarios,
 infraestructura distribuida, formatos nuevos y mejoras de OCR. OCR existente
 sigue siendo opcional y queda fuera de los criterios del piloto digital.
 Se congelan cambios cosméticos, ayuda, mascota y tablero salvo fallos que
-bloqueen el flujo principal. Los archivos locales no tienen borrado automático.
+bloqueen el flujo principal. Los archivos se eliminan automáticamente pasado
+el período de retención configurado (`RETENTION_HOURS`, 24 horas por defecto).
 
 ### Criterios de cierre del piloto
 
