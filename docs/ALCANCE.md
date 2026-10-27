@@ -1,14 +1,71 @@
-# Alcance del Proyecto - PDF Converter v1.1
+# Alcance del Proyecto - PDF Converter v1.2
 
-**Versión:** 1.1.0
+**Versión:** 1.2.0
 
-**Fecha base:** 2026-10-07 · Revisión Word: 2026-10-26
+**Fecha base:** 2026-10-07 · Recorte del MVP local: 2026-10-27
 
 **Estado:** Prototipo local F0; Gate F0 pendiente
 
-Las tablas siguientes describen el alcance objetivo del MVP. Su inclusión
-no acredita que una función esté implementada o aprobada. El avance real
-se registra en [AVANCE.md](AVANCE.md).
+## Entrega activa: MVP local de Word y Excel
+
+Prioridad autorizada el 2026-10-27: terminar primero un piloto local de un
+usuario. Esta sección prevalece sobre el alcance ampliado de las tablas
+posteriores. La aceptación humana sigue pendiente; no se declara aprobado
+el Gate F0 ni implementada la plataforma F1.
+
+Incluye carga de un PDF digital, selección de páginas, conversión a DOCX y
+XLSX, TXT existente, advertencias y descarga. Se reutiliza la interfaz de
+`apps.local_review_ui`, limitada a `127.0.0.1`, con 25 MB y 100 páginas por
+PDF. No se añaden dependencias de React, base de datos ni cola.
+
+Se posponen cuentas, organizaciones, cuotas, lotes, concurrencia de usuarios,
+infraestructura distribuida, formatos nuevos y mejoras de OCR. OCR existente
+sigue siendo opcional y queda fuera de los criterios del piloto digital.
+Se congelan cambios cosméticos, ayuda, mascota y tablero salvo fallos que
+bloqueen el flujo principal. Los archivos locales no tienen borrado automático.
+
+### Criterios de cierre del piloto
+
+1. Arrancar la app con `requirements-mvp.txt` y el comando del README.
+2. Completar carga → conversión → advertencias → descarga con los cinco
+   documentos autorizados seleccionados en `benchmarks.pilot_local`.
+3. Descargar y reabrir Word/Excel, conservar todos los valores de las celdas
+   extraídas, procedencia y TXT; no introducir fórmulas desde texto recibido.
+4. Una persona compara texto y orden, cifras/identificadores, estructura de
+   tablas y apariencia Word frente al PDF; edita, guarda y reabre ambos
+   archivos. Registra aceptación o rechazo por documento en `revision.csv`.
+   Puede indicar `n/a` para tablas ausentes, explicándolo en las notas.
+5. Suite crítica aprobada en desarrollo y suite completa aprobada al cierre;
+   ninguna incidencia bloqueante en los documentos aceptados. Las clases
+   fuera de esta muestra siguen pendientes de validación general.
+
+La selección inicial es `cep_001`, `carta_privacidad_001`, `doc_texto_002`,
+`estado_cuenta_006` y `estado_cuenta_008`: cinco PDFs digitales completos,
+nueve páginas. `report.json` contiene verificaciones automáticas; no acredita
+calidad semántica, orden de lectura ni aceptación humana. Los artefactos y
+la lista de revisión permanecen privados en `.generated/`.
+
+### Política de pruebas durante el MVP
+
+`python -m pytest -q` selecciona el marcador `mvp`: 44 de 88 casos a la fecha
+de este recorte, exactamente el 50%. Es una selección explícita por riesgo,
+no aleatoria: integridad de Excel, texto editable de Word, ligaduras,
+límites/rechazos de PDF, selección de páginas, carga/descarga y seguridad
+básica de las rutas. La proporción puede variar al incorporar regresiones;
+no se excluye un riesgo crítico para mantener un porcentaje exacto.
+
+Ejecutar además las pruebas del módulo modificado con `-m "mvp or not mvp"`.
+La misma expresión sin ruta específica ejecuta la suite completa al cerrar
+entregas. La cobertura queda como comprobación explícita, conservando el
+umbral del 70% en `make test-coverage`; reducir pruebas diarias no significa
+declarar ni exigir una cobertura del 50%. No se promete reducir a la mitad
+el tiempo de ejecución sin medirlo.
+
+## Alcance ampliado de la plataforma (posterior al piloto local)
+
+Las tablas siguientes conservan el objetivo ampliado anterior. Su inclusión
+no acredita implementación o aprobación. El avance real se registra en
+[AVANCE.md](AVANCE.md).
 
 ## Alcance de MVP
 

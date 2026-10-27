@@ -61,6 +61,7 @@ def layout_pdf(tmp_path):
     return path
 
 
+@pytest.mark.mvp
 def test_styles_spaces_columns_and_page_dimensions_survive(layout_pdf):
     ir = extract_digital(layout_pdf)
     reopened = Document(BytesIO(export_docx(ir)))
@@ -81,6 +82,7 @@ def test_styles_spaces_columns_and_page_dimensions_survive(layout_pdf):
     assert all(w.code != 'LAYOUT_ASSETS_UNAVAILABLE' for p in ir.pages for w in p.warnings)
 
 
+@pytest.mark.mvp
 def test_assets_are_embedded_and_graphics_exclude_nested_text(layout_pdf):
     before = sha256(layout_pdf.read_bytes()).hexdigest()
     ir = extract_digital(layout_pdf)
@@ -110,6 +112,7 @@ def test_assets_are_embedded_and_graphics_exclude_nested_text(layout_pdf):
     assert Document(BytesIO(saved.getvalue())).paragraphs[1].text.endswith(' An edit')
 
 
+@pytest.mark.mvp
 def test_merged_tables_remain_editable_with_measured_widths(layout_pdf):
     ir = extract_digital(layout_pdf)
     data = export_docx(ir)
@@ -126,6 +129,7 @@ def test_merged_tables_remain_editable_with_measured_widths(layout_pdf):
     assert Document(BytesIO(saved.getvalue())).tables[0].cell(1, 1).text == 'Edited value'
 
 
+@pytest.mark.mvp
 def test_image_budget_failure_preserves_text_and_reports_it(layout_pdf, monkeypatch):
     from packages.converters import layout
     monkeypatch.setattr(layout, 'MAX_DOCUMENT_ASSET_BYTES', 1)
@@ -136,6 +140,7 @@ def test_image_budget_failure_preserves_text_and_reports_it(layout_pdf, monkeypa
     assert Document(BytesIO(export_docx(ir)))
 
 
+@pytest.mark.mvp
 def test_without_word_avoids_rendering_and_reports_omitted_images(layout_pdf, monkeypatch):
     from packages.converters.layout import LayoutAssets
     def unexpected(*args):
@@ -187,6 +192,7 @@ def test_legacy_ir_without_layout_fields_can_still_export(layout_pdf):
     assert 'Normal words with spaces' in '\n'.join(p.text for p in Document(BytesIO(export_docx(restored))).paragraphs)
 
 
+@pytest.mark.mvp
 def test_selected_page_and_optional_warnings_annex(layout_pdf):
     ir = extract_digital(layout_pdf, page_numbers=[2])
     assert [p.page_number for p in ir.pages] == [2]
@@ -195,6 +201,7 @@ def test_selected_page_and_optional_warnings_annex(layout_pdf):
     assert not any(p.text == 'Left column text' for p in word.paragraphs)
 
 
+@pytest.mark.mvp
 def test_remote_image_references_are_not_loaded(layout_pdf):
     ir = extract_digital(layout_pdf)
     ir.pages[0].images[0].data_uri = 'https://example.invalid/image.png'
@@ -202,6 +209,7 @@ def test_remote_image_references_are_not_loaded(layout_pdf):
         export_docx(ir)
 
 
+@pytest.mark.mvp
 def test_repeated_form_images_survive_on_each_page(tmp_path):
     path = tmp_path / 'repeated-form.pdf'
     logo = Image.new('RGB', (80, 30), 'navy')
@@ -225,6 +233,7 @@ def test_repeated_form_images_survive_on_each_page(tmp_path):
     assert not any(w.code == 'LAYOUT_ASSETS_UNAVAILABLE' for p in ir.pages for w in p.warnings)
 
 
+@pytest.mark.mvp
 def test_painted_backgrounds_do_not_become_padding_cells(tmp_path):
     path = tmp_path / 'painted-grid.pdf'
     pdf = canvas.Canvas(str(path), pagesize=(400, 400))
@@ -256,6 +265,7 @@ def test_painted_backgrounds_do_not_become_padding_cells(tmp_path):
     assert (len(word.tables[0].rows), len(word.tables[0].columns)) == (2, 2)
 
 
+@pytest.mark.mvp
 def test_empty_padding_rows_keep_a_small_line_height(tmp_path):
     path = tmp_path / 'small-padding.pdf'
     pdf = canvas.Canvas(str(path), pagesize=(400, 400))
@@ -273,6 +283,30 @@ def test_empty_padding_rows_keep_a_small_line_height(tmp_path):
             assert cell.paragraphs[0].paragraph_format.line_spacing.pt <= 4.5
 
 
+@pytest.mark.mvp
+@pytest.mark.parametrize(('ligature', 'expanded'), [('\ufb01', 'fi'), ('\ufb02', 'fl')])
+def test_word_ligatures_expand_once_and_repeated_glyphs_survive(tmp_path, ligature, expanded):
+    import reportlab
+    from pathlib import Path
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from benchmarks.validate_word import word_text
+
+    pdfmetrics.registerFont(TTFont('PilotVera', str(Path(reportlab.__file__).parent / 'fonts' / 'Vera.ttf')))
+    path = tmp_path / 'ligatures.pdf'
+    pdf = canvas.Canvas(str(path), pagesize=(400, 400))
+    pdf.setFont('PilotVera', 12)
+    for y in (300, 270):
+        pdf.drawString(40, y, f'A {ligature} {ligature} B')
+    pdf.save()
+    ir = extract_digital(path)
+    expected = f'A {expanded} {expanded} B'
+    assert ir.pages[0].extracted_text.splitlines() == [expected, expected]
+    word = Document(BytesIO(export_docx(ir)))
+    assert [line for line in word_text(word).splitlines() if line.strip()] == [expected, expected]
+
+
+@pytest.mark.mvp
 def test_truly_blank_page_does_not_request_ocr(tmp_path, monkeypatch):
     path = tmp_path / 'blank.pdf'
     pdf = canvas.Canvas(str(path))

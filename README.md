@@ -1,169 +1,112 @@
-# PDF Converter Application
+# PDF Converter
 
-Aplicación web para convertir PDFs digitales, escaneados y mixtos en archivos editables y reutilizables: Excel (.xlsx), Word (.docx), CSV, TXT, Markdown, JSON y PNG/JPEG.
+MVP local para convertir PDFs digitales a **Word y Excel**, con TXT opcional,
+advertencias y descarga desde el navegador. Un usuario y un documento a la vez.
 
-## Características Principales
+**Estado al 2026-10-27:** flujo local verificado; piloto de cinco documentos
+preparado para revisión humana. La plataforma con cuentas, trabajos y
+almacenamiento distribuido corresponde a una entrega posterior.
 
-**Estado actual:** prototipo CLI de viabilidad (F0). La aplicación web,
-la carga de archivos y los trabajos de conversión siguen pendientes.
-Las características enumeradas a continuación describen el objetivo del MVP.
+## Arranque local en Windows
 
-Para probar el flujo local PDF → XLSX/DOCX/TXT:
+Se ha comprobado con Python 3.13. Desde la raíz del repositorio:
 
-```bash
-python -m pip install -r requirements-prototype.txt
-python -m apps.convert benchmarks/corpus/files/synthetic_base_invoice.pdf --output .generated/demo --formats xlsx docx txt
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-mvp.txt
+.\.venv\Scripts\python.exe -m apps.local_review_ui
 ```
 
-La carpeta de salida debe ser nueva. Consulte [el prototipo F0](docs/PROTOTIPO_F0.md)
-para anotaciones, validación, tipos de Excel y limitaciones medidas.
+Abrir [http://127.0.0.1:8420/](http://127.0.0.1:8420/). En el entorno ya
+preparado también sirve `python -m apps.local_review_ui`.
 
-- Conversión de PDFs a múltiples formatos
-- Soporte para documentos digitales, escaneados y mixtos
-- OCR en español e inglés
-- Validación de datos y prevención de pérdida de información
-- Interfaz interactiva para revisar y corregir resultados
-- Almacenamiento privado seguro
-- Procesamiento distribuido con Celery + RabbitMQ
+1. Cargar un PDF con texto seleccionable (hasta 25 MB y 100 páginas).
+2. Elegir Word, Excel o ambos; seleccionar páginas si hace falta.
+3. Convertir, revisar las advertencias y descargar los archivos.
+4. Abrirlos y comparar contenido, cifras y distribución con el original.
 
-## Stack Tecnológico
+Los archivos permanecen en `.generated/web_ui/`, **sin borrado automático**.
+Los resultados requieren revisión. Word aproxima el diseño; Excel conserva
+las celdas como texto de forma predeterminada para proteger identificadores y
+ceros iniciales. Si no se detectan tablas, Excel contiene el texto extraído.
 
-- **Backend**: FastAPI + Python
-- **Frontend**: React + TypeScript + Vite
-- **Procesamiento**: Celery + RabbitMQ
-- **Base de datos**: PostgreSQL
-- **Almacenamiento**: Compatible con S3
-- **Infraestructura**: Docker + Docker Compose
+La app se utiliza en la propia máquina, vinculada a `127.0.0.1`. El MVP digital
+no necesita Docker, React, PostgreSQL, RabbitMQ, Tesseract ni Poppler. OCR
+existente sigue disponible con sus dependencias opcionales, fuera de la
+aceptación de este piloto.
 
-## Requisitos Previos
+## Desarrollo y pruebas reducidas
 
-- Python 3.11+
-- Docker & Docker Compose
-- Node.js 18+ (para desarrollo frontend)
-- 4-8 vCPU y 16 GB RAM recomendado
+Instalar las herramientas de desarrollo en el mismo entorno:
 
-## Inicio Rápido
-
-### Desarrollo Local con Docker Compose
-
-```bash
-# Copiar configuración
-cp .env.example .env
-
-# Iniciar servicios
-docker-compose up -d
-
-# Ejecutar migraciones
-docker-compose exec api python -m alembic upgrade head
-
-# Acceder a:
-# - API: http://localhost:8000
-# - Docs: http://localhost:8000/docs
-# - Frontend: http://localhost:3000 (en desarrollo)
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-mvp-dev.txt
 ```
 
-### Desarrollo Manual
+Los siguientes comandos usan el Python de ese entorno (puede reemplazarse
+`python` por `.\.venv\Scripts\python.exe`):
 
-```bash
-# Crear entorno virtual
-python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+```powershell
+# Desarrollo: selección crítica, 44 de 88 casos actuales (50%)
+python -m pytest -q
 
-# Instalar dependencias
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+# Módulo modificado: incluir todos sus casos
+python -m pytest tests/unit/test_docx_layout.py -q -m "mvp or not mvp"
 
-# Configurar variables de entorno
-cp .env.example .env
-
-# Ejecutar migraciones
-alembic upgrade head
-
-# Iniciar API (desde apps/api)
-python -m uvicorn main:app --reload
-
-# Iniciar worker (desde apps/worker)
-celery -A tasks worker --loglevel=info
-
-# Iniciar frontend (desde apps/web)
-npm install
-npm run dev
+# Cierre de entrega: regresión completa
+python -m pytest -q -m "mvp or not mvp"
 ```
 
-## Documentación
+Se conservan todas las pruebas. La selección crítica protege conversión,
+integridad, límites y descargas; las pruebas de ayuda, temas, benchmark y OCR
+ampliado quedan para el cierre o cambios en esos módulos. Los documentos de
+las pruebas HTTP se generan con datos ficticios; no requieren el corpus privado.
+La cobertura es explícita y requiere `pytest-cov`; `make test-coverage`
+conserva el umbral anterior del 70%.
 
-- [Plan de Trabajo](./PLAN_APP_CONVERSION_PDF_v1.0.md) - Plan completo del proyecto
-- [Arquitectura](./docs/ARQUITECTURA.md) - Decisiones arquitectónicas
-- [Alcance](./docs/ALCANCE.md) - Formatos y limitaciones
-- [Seguridad](./docs/SEGURIDAD.md) - Consideraciones de seguridad
-- [Calidad](./docs/CALIDAD.md) - Métricas y criterios
-- [Licencias](./docs/LICENCIAS.md) - SBOM y dependencias
-- [Progreso](./docs/AVANCE.md) - Estado actual del desarrollo
-- [ADRs](./docs/adr/) - Decisiones arquitectónicas registradas
+## Piloto de cinco documentos
 
-## Fases de Desarrollo
+Con las herramientas de desarrollo y los documentos autorizados ya disponibles:
 
-- **F0**: Viabilidad y benchmark (1-2 semanas)
-- **F1**: Base segura e infraestructura (1 semana)
-- **F2**: Conversión a Excel (2 semanas)
-- **F3**: Conversión a Word (2 semanas)
-- **F4**: OCR y documentos escaneados (1-2 semanas)
-- **F5**: Otros formatos y UX (1 semana)
-- **F6**: Operación y piloto (2-3 semanas)
-
-## Estructura de Directorios
-
-```
-pdf_converter/
-├── apps/
-│   ├── api/              # Backend FastAPI
-│   ├── worker/           # Procesador Celery
-│   └── web/              # Frontend React
-├── packages/             # Código compartido
-│   ├── document_ir/      # Modelo intermedio
-│   ├── converters/       # Motores de conversión
-│   └── exporters/        # Exportadores de formato
-├── tests/                # Suite de pruebas
-├── docs/                 # Documentación
-├── infra/                # Scripts de infraestructura
-├── benchmarks/           # Suite de benchmark
-└── .github/workflows/    # Pruebas opcionales; Actions deshabilitado
+```powershell
+python -m benchmarks.pilot_local --output .generated/mvp-pilot/run-01
 ```
 
-## Comandos Útiles
+Elegir siempre una carpeta nueva. Se verifica el flujo HTTP de carga,
+conversión y descarga con cinco PDFs digitales completos, nueve páginas,
+sin OCR. Cada carpeta incluye original, Word, Excel, TXT y JSON de procedencia.
+`report.json` registra comprobaciones y `revision.csv` deja pendiente la
+aceptación de cada documento. `--ids` permite seleccionar otros IDs digitales
+autorizados del manifest; los PDFs privados no se incluyen en Git.
 
-```bash
-# Ejecutar pruebas
-pytest tests/ -v
+La comparación de caracteres no verifica orden de lectura, significado ni
+apariencia. La persona revisora compara texto, cifras, estructura y diseño,
+edita, guarda y reabre los archivos, y registra su decisión en el CSV.
+Los resultados técnicos no aprueban automáticamente el Gate F0.
 
-# Ejecutar benchmark
-python benchmarks/runner.py
+## Uso por consola
 
-# Generar cobertura
-pytest --cov=apps --cov=packages
-
-# Linting
-black apps/ packages/ tests/
-isort apps/ packages/ tests/
-
-# Type checking
-mypy apps/ packages/
-
-# Generar documentación OpenAPI
-python -c "from apps.api.main import app; import json; print(json.dumps(app.openapi(), indent=2))"
+```powershell
+python -m apps.convert documento.pdf --output .generated/demo --formats docx xlsx txt
 ```
 
-## Contribución
+La carpeta de salida debe ser nueva. La guía de [prototipo F0](docs/PROTOTIPO_F0.md)
+describe selección de páginas, tipos numéricos explícitos y OCR opcional.
+`requirements-prototype.txt` amplía las dependencias locales con herramientas
+de benchmark y OCR.
 
-Por favor leer [CONTRIBUIR.md](./CONTRIBUIR.md) para detalles sobre nuestro proceso de desarrollo.
+## Alcance y continuación
 
-## Licencia
+Se priorizan los bloqueos del recorrido cargar → convertir → revisar →
+descargar → editar. Se posponen cuentas, organizaciones, cuotas, procesamiento
+distribuido, formatos nuevos y mejoras de OCR. Se congelan cambios cosméticos,
+ayuda, mascota y tablero salvo fallos que bloqueen el uso.
 
-Ver [LICENCIAS.md](./docs/LICENCIAS.md) para detalles completos de licencias y dependencias.
+- [Alcance activo y criterios de cierre](docs/ALCANCE.md)
+- [Avance y evidencia](docs/AVANCE.md)
+- [Validación Word previa en tres diseños](docs/VALIDACION_WORD_F0.md)
+- [Plan ampliado de la plataforma](PLAN_APP_CONVERSION_PDF_v1.0.md)
+- [Arquitectura](docs/ARQUITECTURA.md), [seguridad](docs/SEGURIDAD.md) y [licencias](docs/LICENCIAS.md)
 
-## Contacto
-
-Proyecto: Conversión PDF a Múltiples Formatos
-Responsable: Equipo de Desarrollo
-Versión Plan: 1.0.0
-Fecha: 2026-10-07
+La API en `apps/api`, las tareas en `apps/worker` y Docker Compose forman parte
+del trabajo futuro de plataforma; el arranque del MVP usa `apps.local_review_ui`.

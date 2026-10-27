@@ -1,4 +1,4 @@
-.PHONY: help install install-dev run test test-coverage lint format type-check clean docker-up docker-down db-migrate db-seed
+.PHONY: help install install-dev run run-local test test-full test-coverage lint format type-check clean docker-up docker-down db-migrate db-seed
 
 PYTHON := python3
 PIP := pip3
@@ -18,7 +18,8 @@ help:
 	@echo "  make run-beat         Run Celery beat scheduler"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test             Run all tests"
+	@echo "  make test             Run critical local MVP tests"
+	@echo "  make test-full        Run the complete regression suite"
 	@echo "  make test-coverage    Run tests with coverage report"
 	@echo "  make test-unit        Run unit tests only"
 	@echo "  make test-integration Run integration tests only"
@@ -53,6 +54,9 @@ install-dev:
 	$(PIP) install -r requirements.txt -r requirements-dev.txt
 
 ## Development
+run-local:
+	$(PYTHON) -m apps.local_review_ui
+
 run:
 	cd apps/api && $(PYTHON) -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
@@ -70,10 +74,13 @@ run-all: docker-up
 
 ## Testing
 test:
-	pytest tests/ -v --tb=short
+	$(PYTHON) -m pytest tests/ -q
+
+test-full:
+	$(PYTHON) -m pytest tests/ -q -m "mvp or not mvp"
 
 test-coverage:
-	pytest tests/ --cov=apps --cov=packages --cov-report=html --cov-report=term-missing
+	$(PYTHON) -m pytest tests/ -m "mvp or not mvp" --cov=apps --cov=packages --cov-report=html --cov-report=term-missing --cov-branch --cov-fail-under=70
 
 test-unit:
 	pytest tests/unit/ -v

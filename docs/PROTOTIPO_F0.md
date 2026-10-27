@@ -1,5 +1,12 @@
 # Prototipo local de viabilidad
 
+**Prioridad desde 2026-10-27:** cerrar el piloto local digital de Word y
+Excel con la interfaz existente. El arranque mínimo usa
+`requirements-mvp.txt`; los criterios y la selección de pruebas al 50% están
+en [ALCANCE.md](ALCANCE.md) y [README.md](../README.md). El flujo local ya
+permite cargar y descargar; cuentas, trabajos y cola siguen pospuestos.
+El historial técnico siguiente conserva las fechas y límites de F0.
+
 Estado al 2026-10-08: extracción digital con pdfplumber, modelo intermedio
 con procedencia, exportación XLSX/DOCX/TXT y validación de una muestra.
 El prototipo funciona desde CLI. El flujo web con usuarios, trabajos,
@@ -46,7 +53,10 @@ python -m apps.local_review_ui
 
 Sube un PDF, elige formato(s) y si quieres `--ocr`, y descarga el resultado.
 La interfaz incluye carga por arrastre, selección de varios formatos, resumen
-de opciones y un indicador mientras se convierte. Los errores conservan
+de opciones y un indicador mientras se convierte. Desde el 2026-10-27,
+«Convertir PDF» aparece debajo de la carga, junto a la ayuda del archivo
+en escritorio y en su propia fila en pantallas pequeñas; conserva su ayuda
+y la nota del original. Los errores conservan
 formatos, páginas y OCR; el archivo debe seleccionarse de nuevo. La pantalla
 de resultados muestra descargas, páginas y tablas detectadas, notas de revisión
 y una vista de los primeros 6 000 caracteres del texto extraído. El formulario

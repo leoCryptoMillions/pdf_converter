@@ -1,15 +1,12 @@
 """F0 local web wrapper (apps/local_review_ui.py): real upload -> convert ->
 download, through the actual HTTP routes, no mocks.
 """
-from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 
 from apps import local_review_ui
 from apps.local_review_ui import app
 
-CORPUS_SAMPLE = Path("benchmarks/corpus/files/synthetic_base_invoice.pdf")
 client = TestClient(app)
 
 
@@ -18,14 +15,16 @@ def isolated_output(tmp_path, monkeypatch):
     monkeypatch.setattr(local_review_ui, "OUTPUT_ROOT", tmp_path / "web_ui")
 
 
+@pytest.mark.mvp
 def test_index_serves_the_upload_form():
     response = client.get("/")
     assert response.status_code == 200
     assert "Convertir" in response.text
 
 
-def test_convert_and_download_round_trip():
-    with CORPUS_SAMPLE.open("rb") as handle:
+@pytest.mark.mvp
+def test_convert_and_download_round_trip(synthetic_invoice):
+    with synthetic_invoice.open("rb") as handle:
         response = client.post(
             "/convert",
             files={"file": ("source.pdf", handle, "application/pdf")},
@@ -44,6 +43,7 @@ def test_convert_and_download_round_trip():
     assert download.content.startswith(b"PK")  # XLSX is a zip archive.
 
 
+@pytest.mark.mvp
 def test_rejects_non_pdf_upload():
     response = client.post("/convert", files={"file": ("x.txt", b"not a pdf", "text/plain")},
                             data={"formats": ["xlsx"]})
@@ -51,6 +51,7 @@ def test_rejects_non_pdf_upload():
     assert "Conversi" in response.text
 
 
+@pytest.mark.mvp
 def test_download_rejects_path_traversal():
     response = client.get("/download/anything/../../pyproject.toml")
     assert response.status_code == 404
@@ -69,14 +70,16 @@ def test_invalid_pages_preserve_options(pages):
     assert "Conservamos las opciones" in response.text
 
 
+@pytest.mark.mvp
 def test_no_formats_requires_an_explicit_selection():
     response = client.post("/convert", files={"file": ("sample.pdf", b"%PDF-", "application/pdf")})
     assert response.status_code == 400
     assert "Selecciona al menos un formato" in response.text
 
 
-def test_result_displays_safe_filename_preview_and_all_formats():
-    with CORPUS_SAMPLE.open("rb") as handle:
+@pytest.mark.mvp
+def test_result_displays_safe_filename_preview_and_all_formats(synthetic_invoice):
+    with synthetic_invoice.open("rb") as handle:
         response = client.post(
             "/convert", files={"file": ('<script>alert(1)</script>.pdf', handle, "application/pdf")},
             data={"formats": ["xlsx", "docx", "txt"]},
@@ -90,6 +93,7 @@ def test_result_displays_safe_filename_preview_and_all_formats():
         assert client.get(link).status_code == 200
 
 
+@pytest.mark.mvp
 def test_error_escapes_page_input():
     response = client.post(
         "/convert", files={"file": ("sample.pdf", b"%PDF-", "application/pdf")},
@@ -105,6 +109,7 @@ def test_local_assets_are_served():
 
 
 @pytest.mark.parametrize("url", ["/", "/assets/theme.js", "/download/missing/result.txt"])
+@pytest.mark.mvp
 def test_local_response_headers_cover_pages_assets_and_errors(url):
     response = client.get(url)
     assert response.headers["X-Content-Type-Options"] == "nosniff"
@@ -147,11 +152,12 @@ def test_converter_exposes_context_help_with_native_links():
 
 
 @pytest.mark.parametrize('annex', [False, True])
-def test_word_download_layout_notes_and_optional_annex_are_consistent(annex):
+@pytest.mark.mvp
+def test_word_download_layout_notes_and_optional_annex_are_consistent(annex, synthetic_invoice):
     import re
     from io import BytesIO
     from docx import Document
-    with CORPUS_SAMPLE.open('rb') as handle:
+    with synthetic_invoice.open('rb') as handle:
         response = client.post('/convert', files={'file': ('sample.pdf', handle, 'application/pdf')},
             data={'formats': ['docx'], 'docx_warnings': '1' if annex else ''})
     assert response.status_code == 200

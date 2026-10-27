@@ -80,7 +80,11 @@ def positioned_lines(raw, *, origin=None) -> list[PositionedText]:
         spaces = [c for c in raw.chars if c['text'].isspace() and
                   line['x0'] <= (c['x0'] + c['x1']) / 2 <= line['x1'] and
                   line['top'] <= (c['top'] + c['bottom']) / 2 <= line['bottom']]
-        for char in sorted([*line['chars'], *spaces], key=lambda c: c['x0']):
+        # Expanded ligatures can repeat the same source glyph reference in
+        # line['chars'] (one entry per letter). Reconstruct that glyph once;
+        # separate glyph objects, including repeated real text, stay intact.
+        chars = {id(char): char for char in [*line['chars'], *spaces]}.values()
+        for char in sorted(chars, key=lambda c: c['x0']):
             previous = segments[-1][-1] if segments[-1] else None
             if previous and char['x0'] - previous['x1'] > max(12, char['size'] * 1.5):
                 segments.append([])

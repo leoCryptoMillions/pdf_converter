@@ -1,10 +1,105 @@
 # Progreso del Proyecto - PDF Converter
 
-Versión del Plan: 1.0.0  
-Fecha de Actualización: 2026-10-09
-Estado Actual: **F0 EN PROGRESO — prototipo CLI y muestra validada; gate pendiente**
+Versión del Plan: 1.2.0
+Fecha de Actualización: 2026-10-27
+Estado Actual: **MVP local preparado para revisión humana; Gate F0 pendiente**
 
-## Estado Resumen
+## Entrega activa: piloto local de Word y Excel — 2026-10-27
+
+Por autorización del usuario («procede»), se prioriza el recorrido local de
+un usuario con PDF digital, Word/Excel y TXT existente. Cuentas,
+organizaciones, cuotas, infraestructura distribuida, formatos nuevos y
+mejoras de OCR quedan para después. Se congelan cambios cosméticos y
+funciones secundarias. Plan, alcance y README reflejan esta prioridad;
+no se declara aprobada la plataforma F1 ni el Gate F0.
+
+**Entregado:**
+
+- `requirements-mvp.txt` fija las dependencias directas observadas y probadas
+  en Python 3.13; `requirements-mvp-dev.txt` añade las herramientas de pruebas
+  y revisión. El subconjunto F0 hereda estas versiones, corrigiendo el desfase
+  previo de FastAPI/Uvicorn respecto del entorno realmente utilizado.
+- `pytest.ini` selecciona `mvp` por defecto: **44 de 88 casos (50%)**,
+  elegidos por riesgo. No se eliminan pruebas ni se baja el umbral explícito
+  de cobertura. `make test-full` y la expresión `-m "mvp or not mvp"`
+  conservan la regresión completa. Los casos del módulo modificado también
+  deben ejecutarse completos. Se elimina la configuración pytest duplicada
+  en `pyproject.toml` y las opciones de plugins ausentes que emitían avisos.
+- Las pruebas HTTP generan su PDF sintético en un directorio temporal;
+  ya no dependen de un archivo privado/ignorado preexistente en el corpus.
+- `benchmarks.pilot_local` verifica carga, conversión, descarga y reapertura
+  Office con cinco documentos digitales autorizados, completos: nueve páginas.
+  Conserva originales, DOCX/XLSX/TXT/IR, hashes del código, versiones,
+  diagnóstico de caracteres, procedencia y una lista CSV para revisión humana.
+  Exige salida nueva dentro de `.generated/`, sin sobrescribir evidencias.
+- El piloto detectó una duplicación real de ligaduras en Word: pdfplumber
+  puede repetir la referencia de un glifo por cada letra expandida; al
+  reconstruir las líneas, «fi»/«fl» se expandían dos veces. Se procesa una
+  vez cada referencia dentro de la línea, conservando glifos distintos y
+  repeticiones legítimas. Dos regresiones con PDFs sintéticos reproducen
+  el fallo anterior y pasan tras la corrección.
+
+**Verificación ejecutada:**
+
+- `python -m pytest -q --show-capture=no`: **44 aprobadas, 44 excluidas en
+  10.28 s**. Primera selección: 43/86 aprobadas en 9.68 s;
+  tras las regresiones son 44/88 casos. El 50% se refiere a casos seleccionados,
+  no a cobertura ni a un ahorro de tiempo garantizado.
+- `python -m pytest -q -m "mvp or not mvp" --show-capture=no`:
+  **88 aprobadas en 16.53 s**, sin los dos avisos de configuración anteriores.
+- `python -m pip install --dry-run --no-index -r requirements-mvp-dev.txt`:
+  dependencias satisfechas en el entorno instalado, sin descargas. No se ha
+  validado una instalación desde cero en un entorno virtual vacío.
+- `python -m benchmarks.pilot_local --output .generated/mvp-pilot-20261027/final`:
+  **5/5 casos pasan las comprobaciones automáticas**. Se conservan 136 valores
+  de celdas extraídas en Excel; el documento sin tablas conserva su texto en
+  la hoja `Text`. Word coincide en 11,530 caracteres no blancos frente a
+  PDFium, sin faltantes ni adicionales observados. Esto no valida orden,
+  espacios, semántica ni apariencia. No se repitió el renderizado en Microsoft
+  Word ni el recorrido Chromium, porque no se modificó la interfaz.
+
+Artefactos privados: `.generated/mvp-pilot-20261027/final/report.json`,
+`revision.csv` y una carpeta por ID. Las corridas anteriores quedan intactas;
+`run-01` conserva el fallo de ligadura, `run-02` la primera corrección.
+Las pruebas con temporales de Windows requirieron ejecución fuera del sandbox;
+el error inicial de acceso no fue un fallo funcional del convertidor.
+
+**Punto exacto de continuación:** revisar los cinco documentos del paquete,
+comparar texto/orden, cifras/identificadores, tablas y apariencia; editar,
+guardar y reabrir Word y Excel, y completar `revision.csv`. Corregir solo
+incidencias que bloqueen ese recorrido. Las cinco decisiones humanas siguen
+`pending`; no se modifica el ground truth ni los indicadores del Gate F0.
+
+## Botón de conversión debajo de la carga — 2026-10-27
+
+Por indicación explícita del usuario y su imagen de referencia, se mueve
+«Convertir PDF» desde el final del formulario al pie del área de carga.
+En escritorio comparte fila con «Sobre el archivo», ocupa el espacio
+disponible y conserva su ayuda a la derecha y la nota del original debajo.
+La fila se apila cuando no cabe, manteniendo el botón ancho en móvil.
+El mismo formulario conserva formatos, páginas, OCR y validaciones.
+
+Verificación dirigida: **24 pruebas HTTP aprobadas en 3.98 s** y recorrido
+Chromium existente aprobado en ambos temas, móvil, conversión/descargas,
+ayuda y alternativa sin JavaScript. Se revisaron las capturas de escritorio
+y móvil en `.generated/ui-check/form-dark.png` y `form-dark-mobile.png`.
+El servidor local se reinició y sirve el cambio en `http://127.0.0.1:8420/`.
+No cambia la aceptación pendiente de los cinco documentos del piloto.
+
+## Cierre de sesión y reanudación — 2026-10-27
+
+Se guarda el estado completo por petición del usuario. La imagen original
+de referencia del botón queda en `error.png`; los resultados privados y las
+capturas de comprobación permanecen en `.generated/`.
+
+Para retomar, abrir `http://127.0.0.1:8420/`. Si no responde después de cerrar
+Windows o terminar el proceso, ejecutar `python -m apps.local_review_ui`
+desde la raíz del proyecto. Continuar con la revisión de los cinco documentos
+en `.generated/mvp-pilot-20261027/final/` y registrar las decisiones en
+`revision.csv`. Pruebas diarias: `python -m pytest -q`; regresión de cierre:
+`python -m pytest -q -m "mvp or not mvp"`.
+
+## Estado Resumen F0 (corte histórico: 2026-10-09)
 
 ```yaml
 proyecto: conversion-pdf

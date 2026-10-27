@@ -192,6 +192,16 @@ def mock_celery_task():
 # ============================================================================
 
 @pytest.fixture
+def synthetic_invoice(tmp_path):
+    """Generate the HTTP sample locally; a fresh checkout needs no private corpus."""
+    from benchmarks.generate_synthetic_adversarial import build_base_pdf
+
+    source = tmp_path / "synthetic_invoice.pdf"
+    build_base_pdf(source)
+    return source
+
+
+@pytest.fixture
 def sample_job_data() -> Dict[str, Any]:
     """Sample conversion job data"""
     return {

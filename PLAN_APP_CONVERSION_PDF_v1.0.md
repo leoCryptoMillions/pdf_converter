@@ -1,8 +1,19 @@
 # Plan de trabajo: aplicación de conversión PDF a Excel, Word y otros formatos
 
-Versión: 1.1.0 (se conserva el nombre del archivo para mantener sus enlaces)
+Versión: 1.2.0 (se conserva el nombre del archivo para mantener sus enlaces)
 
 Fecha base: 2026-10-07 · Revisión de requisitos Word: 2026-10-26
+
+**Prioridad vigente — 2026-10-27:** por autorización del usuario, la entrega
+inmediata se limita al MVP local de un usuario: PDF digital → Word/Excel,
+TXT existente, revisión y descarga. Reutilizar la interfaz local; posponer
+cuentas, organizaciones, colas, infraestructura distribuida, formatos nuevos
+y mejoras de OCR. Congelar cambios cosméticos y funciones secundarias.
+La selección diaria de pruebas cubre el 50% de los casos actuales por riesgo;
+mantener la suite completa para cierres. Los criterios del piloto y los
+comandos vigentes están en `docs/ALCANCE.md` y `README.md`. El resto de este
+plan conserva la hoja de ruta ampliada. La aceptación humana y Gate F0
+siguen pendientes; el recorte no acredita F1.
 
 Idioma: español  
 Estado: plan de producto con prototipo local y mediciones F0; Gate F0 pendiente. El alcance implementado se registra en `docs/AVANCE.md`.

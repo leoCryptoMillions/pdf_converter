@@ -130,7 +130,17 @@ def render_form(error: str | None = None, *, selected_formats: set[str] | None =
         <div class="action-with-help"><button type="button" class="icon-button" id="remove-file" data-help-action="remove" aria-label="Quitar archivo y elegir otro">{icon('close')}</button>{help_link('remove')}</div>
       </div>
       <p class="field-error" id="file-error" role="alert" hidden></p>
-      <div class="field-help">Sobre el archivo {help_link('upload')}</div>
+      <div class="upload-actions">
+        <div class="field-help">Sobre el archivo {help_link('upload')}</div>
+        <div class="submit-area">
+          <div class="action-with-help submit-action"><button type="submit" class="primary-button" data-help-action="convert"><span id="submit-label">Convertir PDF</span>{icon('arrow')}</button>{help_link('convert')}</div>
+          <p class="submit-note">El PDF original se conserva junto con tus resultados.</p>
+          <div id="progress" class="progress" role="status" tabindex="-1" hidden>
+            <div class="progress-title"><span class="spinner" aria-hidden="true"></span>Estamos preparando tus archivos</div>
+            <p>Espera a que termine la conversión. Los documentos escaneados pueden tardar más.</p>
+          </div>
+        </div>
+      </div>
     </section>
     <section class="form-section" aria-labelledby="formats-title">
       <div class="section-heading"><span class="step-number" aria-hidden="true">2</span>
@@ -163,14 +173,6 @@ def render_form(error: str | None = None, *, selected_formats: set[str] | None =
         <div class="field-help ocr-help">Sobre OCR {help_link('ocr')}</div>
       </div>
     </section>
-    <div class="submit-area">
-      <div class="action-with-help submit-action"><button type="submit" class="primary-button" data-help-action="convert"><span id="submit-label">Convertir PDF</span>{icon('arrow')}</button>{help_link('convert')}</div>
-      <p class="submit-note">El PDF original se conserva junto con tus resultados.</p>
-      <div id="progress" class="progress" role="status" tabindex="-1" hidden>
-        <div class="progress-title"><span class="spinner" aria-hidden="true"></span>Estamos preparando tus archivos</div>
-        <p>Espera a que termine la conversión. Los documentos escaneados pueden tardar más.</p>
-      </div>
-    </div>
   </form>
   <aside class="sidebar" aria-label="Resumen y ayuda">
     <section class="panel summary-card"><h2>Tu conversión</h2>

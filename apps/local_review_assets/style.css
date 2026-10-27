@@ -116,12 +116,14 @@ input[type="checkbox"] { accent-color: var(--primary); width: 18px; height: 18px
 .ocr-option input { margin-top: 4px; }
 .ocr-option strong { display: block; font-weight: 600; }
 .ocr-option .hint { display: block; margin-top: 3px; }
-.submit-area { padding: 22px 28px; border-top: 1px solid var(--border); }
+.upload-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 24px; margin-top: 16px; }
+.upload-actions > .field-help { margin-top: 0; min-height: 50px; }
+.submit-area { flex: 1 1 320px; min-width: 0; }
 .primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 48px; padding: 12px 22px; background: var(--primary); color: var(--on-primary); border: 1px solid transparent; border-radius: 9px; font-weight: 600; text-decoration: none; }
 .primary-button:hover { background: var(--primary-hover); }
 .primary-button:active { background: var(--primary-active); }
 .primary-button:disabled { opacity: .65; cursor: wait; }
-.submit-area .primary-button { width: 100%; }
+.submit-area .primary-button { width: 100%; min-height: 50px; }
 .submit-note { margin-top: 10px; text-align: center; font-size: .75rem; color: var(--muted); }
 .sidebar { display: grid; gap: 20px; }
 .summary-card { padding: 24px; }
@@ -202,7 +204,7 @@ code { font-size: .8em; overflow-wrap: anywhere; }
   .container { padding: 20px 16px 32px; }
   .intro { margin-bottom: 24px; }
   .intro > p:last-child { font-size: .9rem; }
-  .form-section, .submit-area, .result-section { padding: 22px 18px; }
+  .form-section, .result-section { padding: 22px 18px; }
   .section-heading { gap: 8px; }
   .section-heading .hint { font-size: .7rem; }
   .format-grid { gap: 8px; }

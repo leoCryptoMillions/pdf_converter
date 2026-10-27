@@ -27,6 +27,7 @@ def digital_pdf(tmp_path):
     return path, rows
 
 
+@pytest.mark.mvp
 def test_real_extraction_export_preserves_duplicates_ids_and_formulas(digital_pdf):
     source, expected = digital_pdf
     document = extract_digital(source)
@@ -47,6 +48,7 @@ def test_real_extraction_export_preserves_duplicates_ids_and_formulas(digital_pd
     wb.close()
 
 
+@pytest.mark.mvp
 def test_numeric_types_are_explicit_and_ambiguous_values_stay_text(digital_pdf):
     document = extract_digital(digital_pdf[0])
     data = export_xlsx(document, numeric_columns={"p1_t1": {1: "integer", 2: "currency"}})
@@ -63,6 +65,7 @@ def test_numeric_types_are_explicit_and_ambiguous_values_stay_text(digital_pdf):
     wb.close()
 
 
+@pytest.mark.mvp
 def test_excel_precision_guard(digital_pdf):
     document = extract_digital(digital_pdf[0])
     document.pages[0].tables[0].cells[5].content = "1234567890123456"
@@ -71,6 +74,7 @@ def test_excel_precision_guard(digital_pdf):
     wb.close()
 
 
+@pytest.mark.mvp
 def test_metadata_does_not_become_a_formula(digital_pdf):
     document = extract_digital(digital_pdf[0])
     document.engines_used[0].engine_version = "=1+1"
@@ -81,6 +85,7 @@ def test_metadata_does_not_become_a_formula(digital_pdf):
 
 
 @pytest.mark.parametrize("text", ["x" * 32768, "bad\x00text"], ids=["too_long", "control_character"])
+@pytest.mark.mvp
 def test_unrepresentable_excel_text_fails_instead_of_truncating(digital_pdf, text):
     document = extract_digital(digital_pdf[0])
     document.pages[0].tables[0].cells[0].content = text
@@ -88,6 +93,7 @@ def test_unrepresentable_excel_text_fails_instead_of_truncating(digital_pdf, tex
         export_xlsx(document)
 
 
+@pytest.mark.mvp
 def test_duplicate_cell_coordinates_rejected(digital_pdf):
     document = extract_digital(digital_pdf[0])
     table = document.pages[0].tables[0]
@@ -96,6 +102,7 @@ def test_duplicate_cell_coordinates_rejected(digital_pdf):
         export_xlsx(document)
 
 
+@pytest.mark.mvp
 def test_docx_contains_editable_table_without_duplicate_text(digital_pdf):
     from docx import Document
     from packages.exporters.docx import export_docx
@@ -111,6 +118,7 @@ def test_docx_contains_editable_table_without_duplicate_text(digital_pdf):
     assert Document(BytesIO(output.getvalue())).tables[0].cell(1, 1).text == "Edited"
 
 
+@pytest.mark.mvp
 def test_input_limits_and_signature(digital_pdf, tmp_path):
     with pytest.raises(PDFValidationError, match="size"):
         extract_digital(digital_pdf[0], max_bytes=10)
@@ -125,6 +133,7 @@ def test_input_limits_and_signature(digital_pdf, tmp_path):
         extract_digital(invalid)
 
 
+@pytest.mark.mvp
 def test_encrypted_pdf_rejected(digital_pdf, tmp_path):
     from pypdf import PdfReader, PdfWriter
 
@@ -137,6 +146,7 @@ def test_encrypted_pdf_rejected(digital_pdf, tmp_path):
         extract_digital(path)
 
 
+@pytest.mark.mvp
 def test_cli_outputs_and_refuses_overwrite(digital_pdf, tmp_path):
     output = tmp_path / "conversion"
     command = [sys.executable, "-m", "apps.convert", str(digital_pdf[0]), "--output", str(output),
@@ -196,11 +206,13 @@ def test_reference_path_traversal_rejected():
 
 @pytest.mark.parametrize("pages", [[], [0], [-1], [2], [1, 1], [True]],
                          ids=["empty", "zero", "negative", "outside", "duplicate", "boolean"])
+@pytest.mark.mvp
 def test_invalid_selected_pages_rejected(digital_pdf, pages):
     with pytest.raises(PDFValidationError, match="selected pages"):
         extract_digital(digital_pdf[0], page_numbers=pages)
 
 
+@pytest.mark.mvp
 def test_page_selection_retains_original_page_number_and_source_count(tmp_path):
     from reportlab.pdfgen import canvas
 
@@ -256,6 +268,7 @@ def test_full_document_ocr_does_not_score_partial_page_reference(monkeypatch):
     assert "partial-document" in results[0].metrics["note"]
 
 
+@pytest.mark.mvp
 def test_ocr_pixel_limit_rejects_page_before_rasterization(digital_pdf):
     from benchmarks.validate_prototype import ocr_page_text
 

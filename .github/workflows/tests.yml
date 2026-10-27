@@ -82,7 +82,7 @@ jobs:
           DATABASE_URL: "postgresql://postgres:password@localhost:5432/pdf_converter_test"
           REDIS_URL: "redis://localhost:6379/0"
         run: |
-          pytest tests/ -v --cov=apps --cov=packages --cov-report=xml
+          pytest tests/ -v -m "mvp or not mvp" --cov=apps --cov=packages --cov-report=xml --cov-branch --cov-fail-under=70
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
