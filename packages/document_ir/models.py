@@ -4,7 +4,7 @@ Document Intermediate Representation (IR) Models
 Defines the canonical schema for document representation across all conversion engines.
 This IR enables engine-agnostic extraction, validation, and export.
 
-Schema Version: 1.1.0 (additive typography and self-contained layout assets)
+Schema Version: 1.2.0 (additive cell/block fill_color for colored highlight bands)
 Last Updated: 2026-10-26
 """
 
@@ -157,6 +157,7 @@ class Cell(BaseModel):
 
     confidence: Optional[float] = Field(None, description="Extraction confidence 0-1")
     warnings: List[ContentWarning] = Field(default_factory=list)
+    fill_color: Optional[str] = Field(None, description="Background fill hex RRGGBB detected behind this cell in the source PDF, if any; None means no detected highlight band.")
 
     class Config:
         json_schema_extra = {
@@ -263,6 +264,7 @@ class TextBlock(BaseModel):
 
     confidence: Optional[float] = Field(None, description="Extraction confidence")
     warnings: List[ContentWarning] = Field(default_factory=list)
+    fill_color: Optional[str] = Field(None, description="Same as Cell.fill_color, for non-table text sitting on a colored band outside any ruled table.")
 
     class Config:
         json_schema_extra = {
@@ -360,7 +362,7 @@ class DocumentIR(BaseModel):
     """
 
     # Schema versioning
-    schema_version: str = Field(default="1.1.0", description="IR schema version")
+    schema_version: str = Field(default="1.2.0", description="IR schema version")
 
     # Document identification
     document_id: str = Field(..., description="Unique document identifier")

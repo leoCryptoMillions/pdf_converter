@@ -1011,6 +1011,102 @@ con él. Suite completa: 101 passed, 1 skipped. Decisión registrada en ADR
 confirma además que el soporte de documentos escaneados largos no estaba
 cubierto por la validación previa de tres diseños (todos digitales).
 
+## Corrección: Excel no se parecía al original con tablas detectadas — 2026-10-27
+
+El usuario probó un cuarto documento real (una cotización de taller
+automotriz, fuera del corpus, no incorporada a Git) y reportó que el Excel
+generado "no se parece al archivo original" aunque sí generaba varias
+pestañas. Causa real: `export_xlsx` solo escribía las tablas detectadas
+(`document.get_all_tables()`); en cuanto se detectaba AL MENOS una tabla,
+todo el texto fuera de su bbox — encabezado de la empresa, consultor,
+cliente, modelo/serie, nota al pie — se descartaba por completo, sin
+ninguna advertencia. El documento de la cotización tenía 2 tablas
+detectadas pero prácticamente toda la información identificadora vivía
+fuera de ellas.
+
+Corrección: se agrega una hoja "Texto completo" (primera pestaña del
+archivo) con el texto íntegro de cada página, siempre — antes solo existía
+como alternativa cuando NO se detectaba ninguna tabla. De paso se encontró
+que `page.extracted_text` (usado por esta hoja, por TXT y por la vista
+previa web) tenía el mismo bug de palabras unidas ya corregido para celdas
+de tabla (tolerancia fija de pdfplumber insuficiente para huecos pequeños
+sin glifo de espacio); se aplicó la misma corrección (`x_tolerance=1`) a
+`raw.extract_text()` en la extracción base.
+
+Se encontró además, en la misma cotización, un bloque SUBTOTAL/IVA/TOTAL
+sin línea divisoria interna bajo su columna de etiqueta (solo la columna de
+valor tenía líneas), lo que hace que pdfplumber una tres filas de etiqueta
+en una sola celda separada por saltos de línea, mientras los valores sí
+quedan correctamente separados. No se intentó una reconstrucción de la
+cuadrícula (riesgo alto, caso específico de cómo este generador de PDF
+dibuja líneas); en su lugar se añade la advertencia
+`MULTI_LINE_CELL_MAY_SPAN_ROWS` para cualquier celda con saltos de línea,
+señalando que el origen puede tener más filas de las detectadas — la hoja
+"Texto completo" ya muestra esos mismos datos correctamente emparejados
+como respaldo de lectura.
+
+Verificado con el documento real completo (hoja "Texto completo" con todo
+el encabezado/cliente/pie; advertencia nueva en la celda afectada) y con
+render real en Microsoft Excel. Pruebas nuevas en `tests/unit/test_f0_prototype.py`
+(confirmadas rojas sin el fix, verdes con él). Suite completa: 103 passed,
+1 skipped. F0-03 sigue `partial/pending`.
+
+## Fidelidad visual del XLSX: overlay "Pagina_N" por página — 2026-10-27
+
+El usuario pidió explícitamente que el Excel exportado se pareciera
+"prácticamente idéntico" al PDF original, no solo que contuviera los mismos
+datos en hojas separadas. Se diseñó (panel de 3 propuestas + síntesis de un
+juez, orquestado con el Workflow tool) y se implementó una hoja adicional
+`Pagina_N` por página — puramente visual, nunca la fuente de verdad (esa
+sigue siendo `Table_N`/`_Original`) — que reconstruye la cuadrícula de la
+página combinando los bordes de columna/fila de cada tabla (reutilizando
+`column_widths`/`row_heights` ya calculados en `digital.py`, incluida la
+corrección de encabezado fusionado) con el borde izquierdo de cada bloque de
+texto libre, fusiona celdas según `row_span`/`col_span`, aplica el color de
+relleno capturado del PDF (`Cell.fill_color`/`TextBlock.fill_color`, dos
+campos nuevos y opcionales en el IR, `schema_version` 1.1.0→1.2.0) y
+preserva el estilo por fragmento de texto (negritas/colores mezclados en una
+misma celda) vía `openpyxl.cell.rich_text.CellRichText`.
+
+Verificación adversarial independiente (3 agentes: fidelidad visual,
+seguridad/inyección, robustez ante entradas patológicas) encontró 4 defectos
+reales antes de aceptar el resultado, todos corregidos en el código:
+texto truncado a 2-4 caracteres en las celdas visuales (filas dimensionadas
+con la geometría cruda del PDF en vez de con el ajuste real de Excel),
+imágenes capturadas (logo, QR, código de barras) nunca insertadas en el
+overlay sin aviso, texto envuelto que se traslapaba con la fila siguiente, y
+una tabla densa real (75×75 celdas) cuya extracción tardaba ~100s —por
+encima del timeout de producción de 90s (`apps/conversion_isolation.py`)—
+antes de que el tope de densidad del exportador pudiera actuar; se corrigió
+cacheando el acceso repetido a `found.rows`/`found.columns` de pdfplumber y
+añadiendo un límite de enriquecimiento de celda (`LAYOUT_ENRICHMENT_CELL_LIMIT`,
+con aviso `TABLE_LAYOUT_ENRICHMENT_SKIPPED`), bajando ese caso a ~5.2s.
+
+Revisión manual adicional del propio autor sobre los renders reales (no solo
+el reporte de los agentes) encontró que, aunque el texto ya no se perdía,
+las columnas angostas de una tabla con muchas columnas (la cotización real)
+seguían fragmentando palabras letra por sílaba ("REFACCIONES" → "REF/ACC/
+ION/ES" apilado) porque el ancho de columna se derivaba solo de los puntos
+PDF (÷7) sin considerar el contenido. Corrección puntual: las celdas de una
+sola columna (sin fusión) ensanchan su columna hasta caber su palabra más
+larga (tope 40 caracteres, para no inflar una columna por una palabra rara).
+Se encontró de paso que el estimador de líneas envueltas dividía caracteres
+de forma ingenua (sobreestimaba cuánto cabe por línea), lo que aún cortaba
+el valor más largo de un documento real (una razón social de 11 palabras);
+se reemplazó por una simulación real de ajuste de palabras (greedy
+word-wrap), que nunca subestima.
+
+Verificado con los dos documentos reales completos (cotización con bandas
+verdes SUBTOTAL/IVA/TOTAL y logo JAC; Constancia de Situación Fiscal del SAT
+con logo HACIENDA/SAT, QR y código de barras) y render real en Microsoft
+Excel antes y después de cada corrección — no solo lectura de
+`openpyxl.load_workbook()`. Suite completa: 108 passed, 1 skipped. Cero
+cambios en `packages/exporters/docx.py` ni en las rutas de OCR/no-layout de
+`digital.py` (confirmado con `git diff` dirigido). F0-03 sigue
+`partial/pending`: esto mejora la fidelidad visual de la exportación ya
+existente, no añade una validación de calidad representativa nueva ni
+resuelve el Gate F0.
+
 ## Calendario anterior (referencia histórica)
 
 **Fecha Planeada:** 2026-10-14 (después de completar P01)  

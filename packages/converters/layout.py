@@ -168,6 +168,32 @@ def refine_tables(raw, original_tables):
     return result, count
 
 
+def detect_fill(rects, x0: float, y0: float, x1: float, y1: float, *, threshold: float = 0.6) -> str | None:
+    """Return the hex color of the PDF fill rect that most covers box (x0,y0,x1,y1), if any.
+
+    Scans rects (pdfplumber's raw.rects - the same object shape refine_tables
+    already reads: 'fill', 'non_stroking_color', 'x0'/'top'/'x1'/'bottom') for
+    filled rects, keeps the one with the highest overlap-area / box-area ratio,
+    and returns its color via the existing color_hex() only if that ratio
+    exceeds threshold and the color is not near-white (the default page
+    background, not a real highlight).
+    """
+    area = max(1e-6, (x1 - x0) * (y1 - y0))
+    best_ratio, best_hex = 0.0, None
+    for rect in rects:
+        if not rect.get('fill') or rect.get('non_stroking_color') is None:
+            continue
+        hexval = color_hex(rect['non_stroking_color'])
+        if hexval is None or all(int(hexval[i:i + 2], 16) > 250 for i in (0, 2, 4)):
+            continue
+        rx0, ry0, rx1, ry1 = rect['x0'], rect['top'], rect['x1'], rect['bottom']
+        overlap = max(0, min(x1, rx1) - max(x0, rx0)) * max(0, min(y1, ry1) - max(y0, ry0))
+        ratio = overlap / area
+        if ratio > best_ratio:
+            best_ratio, best_hex = ratio, hexval
+    return best_hex if best_ratio >= threshold else None
+
+
 def _issue(page, code: str, message: str):
     page.warnings.append(ContentWarning(level='warning', code=code, message=message,
                                         page_number=page.page_number))

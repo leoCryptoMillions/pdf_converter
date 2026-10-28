@@ -348,6 +348,46 @@ encontrado por el usuario, no una validación nueva de calidad representativa
 ni una aprobación de Gate F0. `verification_coverage` **18% (2/11)** y
 `decision_coverage` **27% (3/11)**, sin cambios.
 
+## Corrección de Excel que no se parecía al original (2026-10-27)
+
+El usuario probó un cuarto documento real (una cotización de taller
+automotriz, fuera del corpus, no incorporada a Git) y reportó que el Excel
+generado "no se parece al archivo original" a pesar de generar varias
+pestañas. Investigación: `export_xlsx` solo exportaba las tablas
+detectadas; en cuanto había al menos una, todo el texto fuera de su bbox
+(encabezado de la empresa, consultor, cliente, modelo/serie, nota al pie)
+se descartaba por completo, sin ninguna advertencia. La cotización tenía 2
+tablas pero casi toda la información identificadora vivía fuera de ellas.
+
+| Fecha | Tarea | Áreas afectadas | Fuentes/evidencia | Verificación | Decisión pendiente |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Corregir pérdida de contexto en Excel con tablas detectadas, y una advertencia nueva para celdas que pueden abarcar varias filas del origen | F0-03 (nota añadida, sin cambio de `implementation_status=partial`/`verification_status=pending`/`decision_status=pending`) | `packages/exporters/xlsx.py` (hoja "Texto completo" siempre presente, primera pestaña); `packages/converters/digital.py` (misma tolerancia de espacio aplicada a page.extracted_text; advertencia MULTI_LINE_CELL_MAY_SPAN_ROWS); `tests/unit/test_f0_prototype.py` (2 pruebas nuevas). SRC-31/32. | 103 pruebas unitarias/HTTP pasan (suite completa). Reproducción sintética confirmada roja sin el fix y verde con él. Verificado contra el documento real completo del usuario (hoja "Texto completo" con encabezado/cliente/pie correctos; advertencia nueva en la celda del bloque SUBTOTAL/IVA/TOTAL) y render real en Microsoft Excel. Evidencia privada en `.generated/docx-review/`, no incorporada a Git ni al corpus. | Ninguna bloqueante para este fix puntual. No se intentó reconstruir la cuadrícula del bloque SUBTOTAL/IVA/TOTAL (riesgo alto, caso específico del generador de PDF); la hoja "Texto completo" y la advertencia nueva mitigan sin resolver estructuralmente esa celda. |
+
+Sin impacto en el cierre de las brechas: F0-03 conserva
+`partial/pending/pending`. Esta es una corrección de un defecto real
+encontrado por el usuario, no una validación nueva de calidad representativa
+ni una aprobación de Gate F0. `verification_coverage` **18% (2/11)** y
+`decision_coverage` **27% (3/11)**, sin cambios.
+
+## Fidelidad visual del XLSX: overlay "Pagina_N" por página (2026-10-27)
+
+El usuario pidió explícitamente que el Excel exportado fuera "prácticamente
+idéntico" al PDF original. Se diseñó con un panel de 3 propuestas + síntesis
+(Workflow tool) y se implementó una hoja `Pagina_N` adicional por página,
+puramente visual (la fuente de verdad sigue siendo `Table_N`/`_Original`),
+que reconstruye la cuadrícula de la página, fusiona celdas, aplica color de
+relleno capturado del PDF y preserva estilo por fragmento de texto.
+
+| Fecha | Tarea | Áreas afectadas | Fuentes/evidencia | Verificación | Decisión pendiente |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Overlay visual por página en XLSX (cuadrícula, fusiones, color de relleno, texto con estilo mixto) + 4 defectos reales encontrados y corregidos por verificación adversarial (truncamiento de texto, imágenes no insertadas, texto traslapado, timeout en tabla densa) + 2 defectos adicionales encontrados por revisión manual propia (columnas angostas fragmentaban palabras; estimador de líneas envueltas subestimaba texto largo) | F0-03 (nota añadida, sin cambio de `implementation_status=partial`/`verification_status=pending`/`decision_status=pending`) | `packages/document_ir/models.py` (Cell.fill_color/TextBlock.fill_color, schema_version 1.2.0); `packages/converters/layout.py` (detect_fill); `packages/converters/digital.py` (dos llamadas nuevas + caché de found.rows/columns + límite de enriquecimiento de celda); `packages/exporters/xlsx.py` (hoja Pagina_N completa); `tests/unit/test_f0_prototype.py` (5 pruebas nuevas). SRC-33/34. | 108 pruebas unitarias/HTTP pasan (suite completa, antes y después de cada corrección). 3 verificadores adversariales independientes (fidelidad visual, seguridad/inyección, robustez) además de revisión manual propia sobre los renders reales (no solo el reporte de los agentes). Verificado con los dos documentos reales completos del usuario (cotización y Constancia SAT) y render real en Microsoft Excel repetido tras cada corrección. Evidencia privada en `.generated/docx-review/`, no incorporada a Git ni al corpus. | Ninguna bloqueante para este fix. Límite conocido: el ancho de columna de Excel sigue siendo una aproximación del punto PDF (sin equivalente exacto), así que zonas de columnas muy angostas con mucho texto quedan más "ocupadas" visualmente que el PDF aunque ya no pierdan ni fragmenten texto. Imágenes de fondo de página completa ('graphics') se excluyen deliberadamente del overlay (taparían el texto) y se señalan con aviso en vez de insertarse. |
+
+Sin impacto en el cierre de las brechas: F0-03 conserva
+`partial/pending/pending`. Esto mejora la fidelidad visual de una
+exportación ya existente; no es una validación de calidad representativa
+nueva ni una aprobación de Gate F0. `verification_coverage` **18% (2/11)** y
+`decision_coverage` **27% (3/11)**, sin cambios.
+
 ## Próxima actualización esperada
 
 Disparador según `docs/mantenimiento-dashboard.md`: antes de cerrar

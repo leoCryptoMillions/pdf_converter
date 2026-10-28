@@ -44,9 +44,9 @@ ASSET_ROOT = Path(__file__).with_name("local_review_assets")
 # Bump on every user-visible feature/fix so whoever opens the app can tell
 # which build they're reviewing without checking git log. Keep the note to
 # one short line describing what's new in THIS build, not a full changelog.
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.6.0"
 APP_VERSION_DATE = "2026-10-27"
-APP_VERSION_NOTE = "Corrige documentos escaneados largos en blanco; recuerda tu configuración; aislamiento y TTL"
+APP_VERSION_NOTE = "Excel ahora incluye una hoja visual por página (cuadrícula, colores, imágenes) muy similar al PDF original"
 FORMAT_INFO = {
     "xlsx": ("Excel", "Tablas y celdas"),
     "docx": ("Word", "Diseño e imágenes"),
@@ -259,7 +259,7 @@ def render_form(error: str | None = None, *, selected_formats: set[str] | None =
       <p>Los PDFs con texto seleccionable ofrecen mejores resultados. Revisa tablas, cifras y saltos de línea antes de usar los archivos.</p></div>
   </aside>
 </div>"""
-    return PAGE_SHELL.format(body=body, title="Convierte tu PDF")
+    return PAGE_SHELL.format(body=body, title="PDF Converter")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -269,7 +269,7 @@ def index() -> str:
 
 @app.get("/ayuda", response_class=HTMLResponse)
 def help_center(q: str = "") -> str:
-    return PAGE_SHELL.format(body=render_help(q), title="Ayuda y preguntas frecuentes")
+    return PAGE_SHELL.format(body=render_help(q), title="Ayuda y preguntas frecuentes · PDF Converter")
 
 
 @app.post("/convert", response_class=HTMLResponse)
@@ -414,7 +414,7 @@ async def convert(
   </aside>
 </div>
 """
-    return HTMLResponse(PAGE_SHELL.format(body=body_html, title="Tus resultados"))
+    return HTMLResponse(PAGE_SHELL.format(body=body_html, title="PDF Converter"))
 
 
 @app.get("/download/{job_id}/{filename}")

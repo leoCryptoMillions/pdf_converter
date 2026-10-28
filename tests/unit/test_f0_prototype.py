@@ -75,6 +75,288 @@ def test_excel_precision_guard(digital_pdf):
 
 
 @pytest.mark.mvp
+def test_xlsx_keeps_full_page_text_even_when_tables_are_found(tmp_path):
+    # Real-world bug (2026-10-27, a real vehicle-repair quotation): export_xlsx
+    # only ever wrote detected tables, silently dropping everything outside
+    # their bbox (company letterhead, client name, serial/model, footer
+    # note) whenever ANY table was found - a document with real tables came
+    # out looking nothing like the original.
+    from reportlab.pdfgen import canvas
+
+    path = tmp_path / "quotation.pdf"
+    pdf = canvas.Canvas(str(path), pagesize=(400, 400))
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(40, 370, "ACME TALLER")
+    pdf.drawString(40, 355, "CLIENTE: Jane Doe")
+    table = Table([["CANT.", "DESCRIPCION"], ["1", "FILTRO"]], colWidths=[50, 100])
+    table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.5, colors.black)]))
+    table.wrapOn(pdf, 150, 40)
+    table.drawOn(pdf, 40, 280)
+    pdf.drawString(40, 260, "Precios sujetos a cambio sin previo aviso.")
+    pdf.save()
+
+    document = extract_digital(path)
+    assert document.get_all_tables()  # a table was in fact detected
+    wb = load_workbook(BytesIO(export_xlsx(document)), data_only=False)
+    assert wb.sheetnames[0] == "Texto completo"
+    full_text = "\n".join(str(c.value) for row in wb["Texto completo"].iter_rows() for c in row if c.value)
+    assert "ACME TALLER" in full_text
+    assert "CLIENTE: Jane Doe" in full_text
+    assert "Precios sujetos a cambio sin previo aviso." in full_text
+    wb.close()
+
+
+@pytest.mark.mvp
+def test_xlsx_flags_a_cell_that_may_span_multiple_source_rows(tmp_path):
+    # Real-world bug (2026-10-27, same quotation): a SUBTOTAL/IVA/TOTAL block
+    # had no row-dividing line under its label column (only under its value
+    # column), so pdfplumber's grid merged three source rows' labels into one
+    # cell, joined by newlines, while the values stayed correctly split.
+    from reportlab.platypus import Paragraph
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    styles = getSampleStyleSheet()
+    path = tmp_path / "wrapped-cell.pdf"
+    rows = [["Header A", "Header B"],
+            [Paragraph("SUBTOTAL<br/>IVA<br/>TOTAL", styles["Normal"]), "100"]]
+    table = Table(rows, colWidths=[120, 50])
+    table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.5, colors.black)]))
+    SimpleDocTemplate(str(path)).build([table])
+
+    document = extract_digital(path)
+    cell = next(c for c in document.get_all_tables()[0].cells if "\n" in c.content)
+    assert cell.content.count("\n") >= 1
+    assert any(w.code == "MULTI_LINE_CELL_MAY_SPAN_ROWS" for w in cell.warnings)
+
+
+@pytest.mark.mvp
+def test_xlsx_visual_page_places_same_row_blocks_without_overlap(tmp_path):
+    # Design-review correction: two free-text blocks sitting side by side on
+    # the same visual row (e.g. a real quotation's "SERIE: ..." and
+    # "MODELO ..." on one line) must each stop their column span at the
+    # other's left edge rather than both reaching for the page's rightmost
+    # column, or their merge_cells ranges collide - verified to actually
+    # raise AttributeError ("MergedCell ... read-only") without this fix.
+    from reportlab.pdfgen import canvas
+
+    path = tmp_path / "side_by_side.pdf"
+    pdf = canvas.Canvas(str(path), pagesize=(400, 200))
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(40, 150, "SERIE: P7401430")
+    pdf.drawString(220, 150, "MODELO E10x")
+    pdf.drawString(350, 150, "FIN")
+    pdf.drawString(40, 100, "Mas contenido debajo de la linea")
+    pdf.save()
+
+    document = extract_digital(path)
+    page = document.pages[0]
+    assert len(page.blocks) == 4
+
+    data = export_xlsx(document)  # Must not raise.
+    wb = load_workbook(BytesIO(data), data_only=False)
+    ws = wb[f"Pagina_{page.page_number}"]
+
+    from packages.exporters.xlsx import _build_page_grid, _locate
+
+    xs, ys = _build_page_grid(page)
+    serie = next(b for b in page.blocks if b.content.startswith("SERIE"))
+    modelo = next(b for b in page.blocks if b.content.startswith("MODELO"))
+    fin = next(b for b in page.blocks if b.content == "FIN")
+    serie_col, modelo_col, fin_col = (_locate(xs, b.location.x0) for b in (serie, modelo, fin))
+    assert serie_col < modelo_col < fin_col  # Same row, strictly increasing columns.
+    shared_row = _locate(ys, serie.location.y0)
+    assert shared_row == _locate(ys, modelo.location.y0) == _locate(ys, fin.location.y0)
+
+    from openpyxl.utils.cell import range_boundaries
+
+    for merged_range in ws.merged_cells.ranges:
+        min_col, min_row, max_col, max_row = range_boundaries(str(merged_range))
+        if min_row - 1 != shared_row:
+            continue  # A different element's (e.g. the line below's) own row.
+        # No same-row merge may reach into or past a later same-row neighbour's column.
+        if min_col - 1 == serie_col:
+            assert max_col - 1 < modelo_col
+        if min_col - 1 == modelo_col:
+            assert max_col - 1 < fin_col
+    wb.close()
+
+
+@pytest.mark.mvp
+def test_xlsx_captures_and_renders_a_colored_highlight_band(tmp_path):
+    # Real-world case this feature targets: a green SUBTOTAL/IVA/TOTAL band
+    # (CLAUDE.md's "highlight cells requiring review" idea, but sourced from
+    # an actually observed PDF fill rect, never a heuristic).
+    from reportlab.lib import colors as rl_colors
+
+    path = tmp_path / "highlight.pdf"
+    rows = [["Label", "Value"], ["SUBTOTAL", "100.00"]]
+    table = Table(rows, colWidths=[100, 60])
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.black),
+        ("BACKGROUND", (0, 1), (-1, 1), rl_colors.HexColor("#00B050")),
+    ]))
+    SimpleDocTemplate(str(path)).build([table])
+
+    document = extract_digital(path)
+    table_ir = document.get_all_tables()[0]
+    header_cells = [c for c in table_ir.cells if c.row_index == 0]
+    highlighted = [c for c in table_ir.cells if c.row_index == 1]
+    assert all(c.fill_color is None for c in header_cells)
+    assert highlighted and all(c.fill_color == "00B050" for c in highlighted)
+
+    from packages.exporters.xlsx import _build_page_grid, _locate
+
+    wb = load_workbook(BytesIO(export_xlsx(document)))
+    page = document.pages[0]
+    ws = wb[f"Pagina_{page.page_number}"]
+    xs, ys = _build_page_grid(page)
+    row0 = _locate(ys, table_ir.location.y0)
+    col0 = _locate(xs, table_ir.location.x0)
+    cell = next(c for c in highlighted if c.col_index == 0)
+    target = ws.cell(row0 + cell.row_index + 1, col0 + cell.col_index + 1)
+    assert target.fill.fgColor.rgb.upper().endswith("00B050")
+    wb.close()
+
+
+@pytest.mark.mvp
+def test_xlsx_visual_page_grows_rows_so_wrapped_text_is_not_clipped(tmp_path):
+    # Real-world bug (2026-10-27, found rendering real documents through
+    # actual Excel, not just openpyxl round-trips): Pagina_N row heights were
+    # taken straight from the PDF's own geometry, which only ever sized a row
+    # for ONE line. A narrow Excel column (its width is an approximation of
+    # the PDF point width, see known limitation) wraps that same text into
+    # several lines, and a one-line-tall row then shows only a sliver of the
+    # first wrapped line - e.g. "REFACCIONES" rendered as "REF". The fix must
+    # grow the row to fit every wrapped line, not just preserve PDF geometry.
+    from reportlab.pdfgen import canvas
+
+    path = tmp_path / "narrow_column.pdf"
+    pdf = canvas.Canvas(str(path), pagesize=(200, 150))
+    pdf.setFont("Helvetica", 10)
+    # A single narrow-looking line of text that, once placed in export_xlsx's
+    # approximated (narrow) column width, needs several wrapped lines.
+    pdf.drawString(20, 120, "REFACCIONES Y REPUESTOS AUTOMOTRICES COMPLETOS")
+    pdf.drawString(20, 60, "Linea de abajo")
+    pdf.save()
+
+    document = extract_digital(path)
+    page = document.pages[0]
+    block = next(b for b in page.blocks if b.content.startswith("REFACCIONES"))
+
+    from packages.exporters.xlsx import (
+        _build_page_grid, _col_width, _estimate_wrapped_lines, _locate,
+    )
+
+    xs, ys = _build_page_grid(page)
+    row_start = _locate(ys, block.location.y0)
+    col_start = _locate(xs, block.location.x0)
+    avail_chars = _col_width(xs, col_start)  # The block's own single column; no later neighbour on its row.
+    expected_lines = _estimate_wrapped_lines(block.content, avail_chars)
+    assert expected_lines > 1  # The scenario only tests something if Excel actually has to wrap it.
+
+    data = export_xlsx(document)
+    wb = load_workbook(BytesIO(data))
+    ws = wb[f"Pagina_{page.page_number}"]
+    height = ws.row_dimensions[row_start + 1].height
+    single_line_height = 10.0 * 1.2  # font_size * line-height multiplier, see _required_row_height.
+    # A one-line-tall row would clip everything past the first wrapped line;
+    # the fix must size the row for every wrapped line the text actually needs.
+    assert height >= expected_lines * single_line_height
+    wb.close()
+
+
+@pytest.mark.mvp
+def test_xlsx_embeds_captured_images_and_discloses_undiscloseable_ones(tmp_path):
+    # Real-world bug (2026-10-27, a real SAT "Constancia de Situacion Fiscal"):
+    # extract_digital captures embedded images (logos, QR codes, barcodes) in
+    # page.images, but export_xlsx's Pagina_N overlay never read page.images
+    # at all - every image silently vanished from the visual sheet with no
+    # warning, hiding real degradation. 'graphics' kind (a full-page vector
+    # re-render) is deliberately NOT embedded (it would float on top of and
+    # obscure cell text/fills) but must still be disclosed, never silent.
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+    from PIL import Image as PILImage
+
+    png_path = tmp_path / "logo.png"
+    PILImage.new("RGB", (40, 20), color=(200, 30, 30)).save(png_path)
+
+    path = tmp_path / "with_image.pdf"
+    pdf = canvas.Canvas(str(path), pagesize=(300, 200))
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(20, 170, "HEADER TEXT")
+    pdf.drawImage(ImageReader(str(png_path)), 20, 100, width=40, height=20)
+    table = Table([["A", "B"], ["1", "2"]], colWidths=[40, 40])
+    table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.5, colors.black)]))
+    table.wrapOn(pdf, 100, 50)
+    table.drawOn(pdf, 20, 40)
+    pdf.save()
+
+    document = extract_digital(path)
+    page = document.pages[0]
+    assert any(img.kind == "embedded" for img in page.images)
+
+    data = export_xlsx(document)
+    wb = load_workbook(BytesIO(data))
+    ws = wb[f"Pagina_{page.page_number}"]
+    assert len(ws._images) >= 1  # The embedded logo must actually be drawn into the sheet.
+
+    warnings = list(wb["_Warnings"].values)
+    image_warnings = [row for row in warnings if row[0] == "IMAGE_NOT_EMBEDDED"]
+    embedded_ids = {img.id for img in page.images if img.kind == "embedded"}
+    # An embedded image that was in fact drawn must never also be reported as
+    # not embedded; a 'graphics' image that was deliberately skipped must be.
+    assert not any(any(image_id in (row[2] or "") for image_id in embedded_ids) for row in image_warnings)
+    if any(img.kind == "graphics" for img in page.images):
+        assert image_warnings
+    wb.close()
+
+
+@pytest.mark.mvp
+def test_dense_table_layout_enrichment_is_skipped_within_time_budget(tmp_path):
+    # Safety regression surfaced by adversarial testing (2026-10-27): a
+    # plausibly realistic dense ruled table (not an extreme input) drove
+    # extract_digital's per-cell layout enrichment (within_bbox +
+    # positioned_lines + cell_runs + detect_fill, each called independently
+    # per cell with no spatial index) past apps/conversion_isolation.py's 90s
+    # hard production timeout, so export_xlsx's own graceful
+    # VISUAL_GRID_TOO_DENSE degrade was never reached - the user saw an
+    # opaque timeout kill instead of a warning-bearing result. Skipping the
+    # expensive per-cell enrichment above a cell-count budget (content and
+    # row/col span stay correct) keeps extraction inside the production
+    # timeout with a wide safety margin, so the degrade is actually reachable.
+    import time
+
+    from packages.converters.digital import LAYOUT_ENRICHMENT_CELL_LIMIT
+
+    n = 58  # Comfortably above LAYOUT_ENRICHMENT_CELL_LIMIT once pdfplumber lays the grid out.
+    path = tmp_path / "dense_grid.pdf"
+    rows = [[f"{r}-{c}" for c in range(n)] for r in range(n)]
+    table = Table(rows, colWidths=[20] * n, rowHeights=[12] * n)
+    table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.25, colors.black),
+                               ("FONTSIZE", (0, 0), (-1, -1), 6)]))
+    SimpleDocTemplate(str(path), pagesize=(n * 20 + 40, n * 12 + 40)).build([table])
+
+    started = time.monotonic()
+    document = extract_digital(path)
+    elapsed = time.monotonic() - started
+
+    table_ir = document.get_all_tables()[0]
+    assert len(table_ir.cells) > LAYOUT_ENRICHMENT_CELL_LIMIT
+    assert any(w.code == "TABLE_LAYOUT_ENRICHMENT_SKIPPED" for w in table_ir.warnings)
+    # Content extraction (not the skipped enrichment) must remain correct.
+    assert any(c.content == "0-0" for c in table_ir.cells)
+    assert all(c.row_span >= 1 and c.col_span >= 1 for c in table_ir.cells)
+    # Generous bound: well under the 90s production timeout (apps/
+    # conversion_isolation.py), with ample margin for slower CI machines -
+    # before this fix, a table this size measured close to 100s.
+    assert elapsed < 45
+
+    data = export_xlsx(document)  # Must still complete without raising or hanging.
+    assert data
+
+
+@pytest.mark.mvp
 def test_metadata_does_not_become_a_formula(digital_pdf):
     document = extract_digital(digital_pdf[0])
     document.engines_used[0].engine_version = "=1+1"

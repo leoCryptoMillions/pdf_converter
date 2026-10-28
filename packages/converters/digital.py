@@ -21,6 +21,21 @@ class PDFValidationError(ValueError):
     """Input cannot be processed within the prototype's contract."""
 
 
+# Per-cell layout enrichment (raw.within_bbox + positioned_lines + cell_runs +
+# detect_fill, below) scans the whole page's objects on every call with no
+# spatial index, so its cost grows with the page's total object count as well
+# as the cell count - measured close to quadratic in cell count alone, i.e.
+# roughly quartic in a square table's side length (a 75x75/5625-cell ruled
+# table took ~100s for this loop alone, exceeding apps/conversion_isolation.py's
+# 90s hard production timeout before export_xlsx's own VISUAL_GRID_TOO_DENSE
+# fallback could ever run). Skipping the enrichment above this limit keeps
+# extraction inside that budget so the graceful, warning-bearing degrade is
+# actually reachable instead of an opaque timeout kill. Basic cell content
+# (already extracted via found.extract() before this limit is checked) and
+# row/col span (cheap, independent of page object count) are unaffected.
+LAYOUT_ENRICHMENT_CELL_LIMIT = 2500
+
+
 def warning(code: str, message: str, page: int) -> ContentWarning:
     return ContentWarning(level="warning", code=code, message=message, page_number=page)
 
@@ -39,7 +54,9 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
         for chunk in iter(lambda: stream.read(65536), b""):
             digest.update(chunk)
     started = time.monotonic()
-    from packages.converters.layout import LayoutAssets, cell_runs, inside, positioned_lines, refine_tables
+    from packages.converters.layout import (
+        LayoutAssets, cell_runs, detect_fill, inside, positioned_lines, refine_tables,
+    )
     assets = LayoutAssets(source)
     try:
         with pdfplumber.open(source) as pdf:
@@ -56,7 +73,12 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
             pages = []
             for number in sorted(selected):
                 raw = pdf.pages[number - 1]
-                text = raw.extract_text() or ""
+                # Matches the table-cell tolerance fix below: pdfplumber's
+                # default x_tolerance=3 misses real word gaps in PDFs with no
+                # explicit space glyph, merging words in the base extracted
+                # text (used by TXT export, the preview and XLSX's full-text
+                # sheet alike).
+                text = raw.extract_text(x_tolerance=1) or ""
                 page = Page(page_number=number, width=raw.width, height=raw.height,
                             rotation=raw.rotation,
                             classification="mixed" if text and raw.images else
@@ -111,21 +133,40 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                     if not rows:
                         continue
                     cells = []
+                    # pdfplumber's Table.rows/.columns are plain @property, not
+                    # cached - found.rows[r] alone recomputes the *entire* grid
+                    # from scratch. Evaluating it once per (r, c) pair inside
+                    # this nested loop (as a naive `found.rows[r].cells[c]`
+                    # would) makes grid construction itself O(cells^2); a
+                    # 75x75 table measured this one line alone costing ~19s of
+                    # a ~100s total. Reading the property once removes that
+                    # self-inflicted quadratic cost with no behavior change -
+                    # found.rows is a pure, deterministic computation from the
+                    # table's own immutable structure.
+                    found_rows = found.rows
                     for r, values in enumerate(rows):
                         for c, value in enumerate(values):
-                            bbox = found.rows[r].cells[c]
+                            bbox = found_rows[r].cells[c]
                             cell = Cell(content=value or "", row_index=r, col_index=c,
                                         extraction_method="direct",
                                         original_source=Rectangle(x0=bbox[0], y0=bbox[1], x1=bbox[2], y1=bbox[3]) if bbox else None)
                             if value is None or bbox is None:
                                 cell.warnings.append(warning("MISSING_OR_MERGED_CELL", "Cell may be empty or merged; check the source.", number))
+                            elif "\n" in value:
+                                # The source PDF may lack a row-dividing line this
+                                # cell's neighbours have (seen on a real quotation:
+                                # a SUBTOTAL/IVA/TOTAL block with no internal lines
+                                # under its label column), collapsing what should
+                                # be several rows into one cell here.
+                                cell.warnings.append(warning("MULTI_LINE_CELL_MAY_SPAN_ROWS",
+                                    "Cell has multiple lines; the source may have more rows than detected here. Compare with the original.", number))
                             cells.append(cell)
                     x0, y0, x1, y1 = found.bbox
                     page.tables.append(Table(id=f"p{number}_t{index}", page_number=number,
                                              location=Rectangle(x0=x0, y0=y0, x1=x1, y1=y1),
                                              rows=len(rows), columns=max(map(len, rows)), cells=cells,
                                              column_widths=[col.bbox[2] - col.bbox[0] for col in found.columns],
-                                             row_heights=[row.bbox[3] - row.bbox[1] for row in found.rows],
+                                             row_heights=[row.bbox[3] - row.bbox[1] for row in found_rows],
                                              extraction_method="direct", source_engine="pdfplumber"))
                 if preserve_layout:
                     lines = positioned_lines(raw)
@@ -147,19 +188,30 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                             table.column_widths = [b - a for a, b in zip(xs, xs[1:])]
                         if len(ys) == table.rows + 1:
                             table.row_heights = [b - a for a, b in zip(ys, ys[1:])]
+                        skip_enrichment = len(table.cells) > LAYOUT_ENRICHMENT_CELL_LIMIT
+                        if skip_enrichment:
+                            table.warnings.append(warning('TABLE_LAYOUT_ENRICHMENT_SKIPPED',
+                                f'Table has {len(table.cells)} cells, above the {LAYOUT_ENRICHMENT_CELL_LIMIT}-cell '
+                                'processing budget; per-cell highlight colors and styled runs were not computed to '
+                                'stay within the conversion time limit. Cell text content is unaffected; compare '
+                                'highlight bands and run styling with the source PDF.', number))
                         for cell in table.cells:
                             if cell.original_source is None:
                                 continue
                             box = cell.original_source
+                            cell.col_span = max(1, sum(box.x0 < x <= box.x1 for x in xs))
+                            cell.row_span = max(1, sum(box.y0 < y <= box.y1 for y in ys))
+                            if skip_enrichment:
+                                continue
                             # Extract each cell independently. A page-wide
                             # line can straddle adjacent cells and lose the
                             # smaller cell's font/style when split by centre.
                             region = raw.within_bbox((box.x0 + raw.bbox[0], box.y0 + raw.bbox[1],
                                                       box.x1 + raw.bbox[0], box.y1 + raw.bbox[1]), strict=False)
+                            cell.fill_color = detect_fill(raw.rects, box.x0 + raw.bbox[0], box.y0 + raw.bbox[1],
+                                                           box.x1 + raw.bbox[0], box.y1 + raw.bbox[1])
                             cell_lines = positioned_lines(region, origin=raw.bbox[:2])
                             cell.runs = cell_runs(cell_lines, cell.content)
-                            cell.col_span = max(1, sum(box.x0 < x <= box.x1 for x in xs))
-                            cell.row_span = max(1, sum(box.y0 < y <= box.y1 for y in ys))
                             if cell_lines:
                                 cell.padding_left = max(0, min(b.location.x0 for b in cell_lines) - box.x0)
                                 cell.padding_top = max(0, min(b.location.y0 for b in cell_lines) - box.y0)
@@ -168,7 +220,9 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                             continue
                         page.blocks.append(TextBlock(id=f"p{number}_b{index}", content=line.content,
                             runs=line.runs, page_number=number, reading_order=index,
-                            extraction_method="direct", location=line.location))
+                            extraction_method="direct", location=line.location,
+                            fill_color=detect_fill(raw.rects, line.location.x0 + raw.bbox[0], line.location.y0 + raw.bbox[1],
+                                                    line.location.x1 + raw.bbox[0], line.location.y1 + raw.bbox[1])))
                     assets.extract(raw, page)
                     page.metadata['word_layout'] = 'positioned-v1' if text.strip() else 'ocr-flow-v1'
                     page.warnings.append(warning('DOCX_LAYOUT_APPROXIMATE',
