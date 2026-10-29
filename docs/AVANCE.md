@@ -1,8 +1,22 @@
 # Progreso del Proyecto - PDF Converter
 
 Versión del Plan: 1.2.0
-Fecha de Actualización: 2026-10-27
-Estado Actual: **MVP local preparado para revisión humana; Gate F0 pendiente**
+Fecha de Actualización: 2026-10-28
+Estado Actual: **Piloto local Word/Excel aceptado por el usuario; Gate F0 pendiente**
+
+**Cierre de revisión del piloto (2026-10-28):** el usuario revisó y aceptó
+los cinco documentos del paquete versión 0.6.4. La aceptación por documento
+quedó registrada en `.generated/mvp-pilot-20261028/final-v3/revision.csv`;
+el informe técnico y el comparativo local reflejan el cierre. Se acepta el
+resultado del piloto para continuar el MVP. Esto no equivale a aprobar el
+Gate F0 ni certifica fidelidad exacta para otros PDFs.
+
+Siguiente paso recomendado para terminar el MVP local: preparar un lanzador
+sencillo de Windows y hacer una pasada de instalación/arranque desde cero,
+manteniendo el alcance actual de PDF digital, Word/Excel/TXT y la prueba diaria
+reducida por riesgo. OCR, cuentas, infraestructura y formatos nuevos siguen
+fuera de alcance. Los paquetes de fechas/corridas anteriores conservan
+evidencia histórica.
 
 ## Entrega activa: piloto local de Word y Excel — 2026-10-27
 
@@ -64,11 +78,9 @@ Artefactos privados: `.generated/mvp-pilot-20261027/final/report.json`,
 Las pruebas con temporales de Windows requirieron ejecución fuera del sandbox;
 el error inicial de acceso no fue un fallo funcional del convertidor.
 
-**Punto exacto de continuación:** revisar los cinco documentos del paquete,
-comparar texto/orden, cifras/identificadores, tablas y apariencia; editar,
-guardar y reabrir Word y Excel, y completar `revision.csv`. Corregir solo
-incidencias que bloqueen ese recorrido. Las cinco decisiones humanas siguen
-`pending`; no se modifica el ground truth ni los indicadores del Gate F0.
+**Cierre de esta corrida:** el piloto final-v3 fue revisado y aceptado por el
+usuario en los cinco casos. Las decisiones están en `revision.csv`. No se
+modifica el ground truth ni los indicadores del Gate F0.
 
 ## Botón de conversión debajo de la carga — 2026-10-27
 
@@ -1106,6 +1118,118 @@ cambios en `packages/exporters/docx.py` ni en las rutas de OCR/no-layout de
 `partial/pending`: esto mejora la fidelidad visual de la exportación ya
 existente, no añade una validación de calidad representativa nueva ni
 resuelve el Gate F0.
+
+## Corrección del flujo Excel y de la cuadrícula visual — 2026-10-28
+
+El usuario volvió a probar desde localhost y reportó que el XLSX seguía sin
+parecerse al PDF. Se reprodujo con el último trabajo local de una cotización
+de una página, sin incorporar su contenido a Git. La comparación incluyó
+renderizado real en Microsoft Excel, además de la inspección del XLSX/IR.
+
+Causas y correcciones:
+
+- El subproceso web y el CLI activaban `preserve_layout` solo al pedir Word.
+  Elegir únicamente Excel omitía diseño, estilos y logotipo. Ahora XLSX
+  también activa la extracción de diseño.
+- El archivo abría en `Texto completo`. Ahora las hojas `Pagina_N` aparecen
+  primero y la primera página queda activa; se mantienen datos/procedencia.
+- La cuadrícula compartida contiene bordes de distintas tablas y textos.
+  Sumar índices locales de fila/columna a esa cuadrícula movía celdas y
+  producía ocho colisiones. Se ubican mediante sus rectángulos de origen;
+  en la conversión corregida no hay colisiones de disposición.
+- Las fuentes de un solo estilo no se aplicaban a las celdas; los alias
+  `CIDFont` ocultaban además familia y peso. Se leen los nombres y estilos
+  de los programas TrueType incorporados usando Pillow, sin instalar fuentes,
+  y se aplican al XLSX. Se recuperan Calibri regular/negrita y los estilos
+  de los encabezados de este PDF. Word conserva su ruta de exportación.
+- Se conservan bordes de tablas, rellenos, proporciones aproximadas de
+  columnas y posición absoluta del logotipo. Se aprovecha espacio vacío bajo
+  las líneas antes de aumentar alturas, evitando desplazar toda la página.
+  Se fijan lienzo/márgenes y una página de impresión por hoja. Las celdas
+  siguen siendo editables; no se sustituye la página por una captura.
+- Un glifo de la nota al pie carece de Unicode decodificado en el extractor.
+  Se conserva su marcador y se añade `SOURCE_GLYPH_UNMAPPED` en resultados
+  y advertencias, sin adivinar texto. Es una limitación pendiente de revisión.
+
+Verificación: la suite completa pasó **111 pruebas, 1 omitida** (límite de
+memoria exclusivo de POSIX) en 38.03 s. Se añadieron regresiones de XLSX
+sin Word en HTTP/CLI y de tablas con orígenes/columnas distintos; se ajustó
+la prueba de altura para medir la celda fusionada completa. La comprobación
+HTTP sobre el PDF real descarga los resultados, confirma `Pagina_1` activa,
+un logotipo incorporado, **204 valores de celdas conservados** y cero
+colisiones de disposición. La vista renderizada se revisó contra el PDF.
+Tras añadir la advertencia de glifos y actualizar la ayuda, la verificación
+dirigida de Excel y HTTP pasó **79 pruebas en 26.90 s**. Selección diaria
+actual: 66 de 112 casos; se conservan regresiones críticas aunque la proporción
+supere el objetivo aproximado del 50%.
+No se acredita fidelidad exacta ni aceptación humana del piloto.
+
+Evidencia privada en `.generated/excel-review-20261028/`: `source.pdf`,
+`baseline.xlsx`, `baseline-excel.pdf`, `corrected.xlsx`,
+`corrected.ir.json`, `http-report.json` y renders de comprobación.
+La versión local es **0.6.1**, con la ayuda Excel actualizada. La regeneración
+del piloto permanece a la espera de que el usuario revise esta corrección.
+
+## Piloto regenerado y comprobado con Word/Excel — 2026-10-28
+
+Por autorización del usuario, se actualizó el validador y se regeneraron
+`cep_001`, `carta_privacidad_001`, `doc_texto_002`, `estado_cuenta_006` y
+`estado_cuenta_008` mediante carga/conversión/descarga HTTP y subprocesos.
+El paquete vigente es `.generated/mvp-pilot-20261028/final-v3/`, versión
+**0.6.4**. `review.html` compara PDF original, Word y Excel por página;
+`revision.csv` conserva pendientes las cinco decisiones humanas.
+
+El validador ahora comprueba `Texto completo`, las hojas `Pagina_N`, la hoja
+activa, imágenes, procedencia, valores de tablas, fórmulas, colisiones y
+edición/guardado/reapertura con las bibliotecas. Se añadieron
+`benchmarks/render_pilot.ps1` para renderizar y editar copias con Office real,
+y `benchmarks/review_pilot.py` para comparar renders y generar el comparativo.
+Las comprobaciones de Office se ejecutan en instancias privadas ocultas y
+abren los resultados descargados en modo de solo lectura.
+
+La revisión encontró y corrigió tres problemas del recorrido de aceptación:
+
+- Una página en blanco del informe no tenía hoja de Excel. Ahora se conserva
+  y se subdividen los espacios altos para respetar el límite de altura de fila.
+- Establecer un área de impresión en Excel añadía un nombre nativo que
+  entraba en conflicto con el nombre OOXML generado, bloqueando la reapertura
+  de la copia guardada. Se usa el lienzo explícito/UsedRange para delimitar
+  la página, evitando generar el nombre conflictivo. Una prueba aislada y
+  las cinco comprobaciones de Office confirman guardado/reapertura correctos.
+- La revisión visual detectó rótulos blancos sobre fondo blanco en algunos
+  paneles financieros: el fondo de origen estaba pintado mediante trazados o
+  varias piezas, sin un rectángulo único coincidente. Se mide el color
+  predominante del recurso gráfico de origen sin texto, con presupuestos de
+  tamaño, y se aplica como relleno nativo de la celda. No se sustituye la
+  página por una captura. Se añadieron regresiones con datos sintéticos y se
+  revisaron los renders para confirmar que los rótulos vuelven a ser legibles.
+
+Resultados del paquete vigente:
+
+- **5/5 comprobaciones técnicas pasan**; nueve páginas de origen, nueve
+  renderizadas en Word y nueve hojas renderizadas en Excel, incluida la blanca.
+- **136 valores de celdas conservados**; cero colisiones de disposición.
+- **11,530 caracteres no blancos** coinciden en los diagnósticos de origen,
+  Word y Excel renderizados, sin faltantes ni adicionales observados. Este
+  conteo no verifica espacios, orden de lectura ni exactitud semántica.
+- Los cinco Word y los cinco Excel pasan edición, guardado y reapertura en
+  Microsoft Office 16.0. El informe con tabla nativa también pasa edición
+  de una celda en Word; en los otros casos esa comprobación no aplica.
+- **118 pruebas aprobadas, una omitida** (límite de memoria exclusivo de
+  POSIX), en 44.52 s. La selección diaria conserva 66 de 119 casos por riesgo.
+- Chromium verifica cinco fichas, 27 imágenes cargadas, enlaces locales
+  existentes y ausencia de desbordamiento horizontal a 375 px.
+
+Se conservan las corridas anteriores como evidencia. `report.json` registra
+versiones, hashes del código y de los artefactos, diagnósticos por página y
+resultados de Office. Las copias `edited-in-word.docx` y
+`edited-in-excel.xlsx` contienen marcadores de prueba; los archivos
+`result.docx`/`result.xlsx` son los resultados que debe revisar el usuario.
+
+**Continuación:** abrir `review.html`, comparar apariencia, texto/orden,
+cifras y tablas, y registrar decisión/nombre/notas en `revision.csv`.
+La distribución sigue siendo aproximada; no se acredita fidelidad exacta ni
+se marca el Gate F0 como aprobado. Localhost sirve la versión 0.6.4.
 
 ## Calendario anterior (referencia histórica)
 

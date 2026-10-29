@@ -75,7 +75,7 @@ def _child_main(conn, job_dir: str, source_path: str, page_numbers: list[int] | 
         from packages.converters.digital import PDFValidationError, extract_digital
 
         document = extract_digital(Path(source_path), page_numbers=page_numbers, ocr=ocr,
-                                    preserve_layout="docx" in selected_formats)
+                                    preserve_layout=bool({"docx", "xlsx"} & selected_formats))
 
         job_dir_path = Path(job_dir)
         written: list[str] = []

@@ -46,6 +46,43 @@ def color_hex(value) -> str | None:
     return ''.join(f'{round(max(0, min(1, v)) * 255):02X}' for v in rgb)
 
 
+def embedded_font_styles(raw) -> dict:
+    """Read actual families/weights when a PDF producer uses CIDFont aliases.
+
+    Font programs stay private and are neither installed nor downloaded.
+    Unsupported fonts keep their existing metadata.
+    """
+    from pdfminer.pdftypes import resolve1
+    from PIL import ImageFont
+
+    result = {}
+    try:
+        fonts = resolve1(raw.page_obj.resources.get('Font', {}))
+    except (AttributeError, TypeError):
+        return result
+    if not isinstance(fonts, dict):
+        return result
+    for reference in fonts.values():
+        try:
+            font = resolve1(reference)
+            descendants = resolve1(font.get('DescendantFonts', []))
+            descriptor = resolve1((resolve1(descendants[0]) if descendants else font).get('FontDescriptor', {}))
+            stream = resolve1(descriptor.get('FontFile2'))
+            name = getattr(descriptor.get('FontName'), 'name', None)
+            if stream is None or not name:
+                continue
+            data = stream.get_data()
+            if len(data) > 8 * 1024 * 1024:
+                continue
+            family, style = ImageFont.truetype(BytesIO(data), 12).getname()
+            result[name] = {'font_name': family,
+                            'bold': bool(re.search(r'bold|black|heavy|demi', style, re.I)),
+                            'italic': bool(re.search(r'italic|oblique', style, re.I))}
+        except Exception:
+            continue
+    return result
+
+
 def font_style(char: dict) -> dict:
     name = re.sub(r'^[A-Z]{6}\+', '', char.get('fontname') or '')
     return dict(font_name=name or None, font_size=float(char.get('size') or 10),

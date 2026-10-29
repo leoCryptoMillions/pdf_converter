@@ -7,6 +7,7 @@ needs_review then follows DEC-04 (packages/converters/ocr.py).
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 import time
 
@@ -55,7 +56,7 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
             digest.update(chunk)
     started = time.monotonic()
     from packages.converters.layout import (
-        LayoutAssets, cell_runs, detect_fill, inside, positioned_lines, refine_tables,
+        LayoutAssets, cell_runs, detect_fill, embedded_font_styles, inside, positioned_lines, refine_tables,
     )
     assets = LayoutAssets(source)
     try:
@@ -90,6 +91,11 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                             metadata={"coordinate_system": "top-left, PDF points",
                                       "text_coverage_measured": False})
                 blank_page = not (text.strip() or raw.chars or raw.images or raw.rects or raw.curves or raw.lines or raw.annots)
+                unmapped = sum(bool(re.fullmatch(r'\(cid:\d+\)', char.get('text', '')))
+                               for char in raw.chars)
+                if unmapped:
+                    page.warnings.append(warning('SOURCE_GLYPH_UNMAPPED',
+                        f'{unmapped} source glyph(s) have no decoded Unicode value; placeholder text is retained. Compare with the source PDF.', number))
                 if blank_page:
                     page.metadata['blank_page'] = True
                     page.warnings.append(ContentWarning(level='info', code='EMPTY_PAGE',
@@ -169,6 +175,7 @@ def extract_digital(source: Path, *, max_bytes: int = 25 * 1024 * 1024,
                                              row_heights=[row.bbox[3] - row.bbox[1] for row in found_rows],
                                              extraction_method="direct", source_engine="pdfplumber"))
                 if preserve_layout:
+                    page.metadata['embedded_font_styles'] = embedded_font_styles(raw)
                     lines = positioned_lines(raw)
                     for table in page.tables:
                         # Normalize every layout coordinate to this page's top-left.

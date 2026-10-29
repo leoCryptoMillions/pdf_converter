@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+from collections import Counter
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 import math
@@ -12,7 +13,9 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.cell.rich_text import CellRichText, TextBlock as _RichRun
 from openpyxl.cell.text import InlineFont
 from openpyxl.drawing.image import Image as XLImage
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.drawing.spreadsheet_drawing import AbsoluteAnchor
+from openpyxl.drawing.xdr import XDRPoint2D, XDRPositiveSize2D
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from packages.document_ir.models import DocumentIR, TextRun
@@ -36,6 +39,12 @@ def put_text(cell, value: str) -> None:
 
 def _run_style(run: TextRun) -> tuple:
     return (run.font_name, run.font_size, run.bold, run.italic, run.color)
+
+
+def _page_runs(page, runs: list[TextRun], content: str) -> list[TextRun]:
+    aliases = page.metadata.get('embedded_font_styles', {})
+    return [run.model_copy(update=aliases[run.font_name]) if run.font_name in aliases else run
+            for run in (runs or [TextRun(content=content)])]
 
 
 def _argb(color: str | None) -> str | None:
@@ -92,6 +101,9 @@ def put_rich_text(cell, runs: list[TextRun]) -> None:
     same length/illegal-character guard runs first, on the joined text.
     """
     joined = "".join(run.content for run in runs)
+    style = next((run for run in runs if run.content.strip()), runs[0] if runs else TextRun(content=""))
+    cell.font = Font(name=style.font_name or "Arial", size=style.font_size or 10,
+                     bold=style.bold, italic=style.italic, color=_argb(style.color))
     if len(joined) > 32767 or ILLEGAL_CHARACTERS_RE.search(joined):
         raise ValueError("Text cannot be represented losslessly in an XLSX cell")
     if len(runs) <= 1 or all(_run_style(run) == _run_style(runs[0]) for run in runs):
@@ -171,7 +183,14 @@ def _build_page_grid(page) -> tuple[list[float], list[float]]:
         xs.add(block.location.x0)
         ys.add(block.location.y0)
         ys.add(block.location.y1)
-    return _cluster_edges(list(xs)), _cluster_edges(list(ys))
+    row_edges = _cluster_edges(list(ys))
+    # A blank page (or a large blank margin) can exceed Excel's 409.5 pt
+    # row-height limit. Subdivide empty coordinate bands without moving text.
+    bounded_rows = [row_edges[0]]
+    for start, end in zip(row_edges, row_edges[1:]):
+        parts = max(1, math.ceil((end - start) / 300))
+        bounded_rows.extend(start + (end - start) * part / parts for part in range(1, parts + 1))
+    return _cluster_edges(list(xs)), bounded_rows
 
 
 def _ranges_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
@@ -226,32 +245,11 @@ def _col_width(xs: list[float], index: int) -> float:
     """Same width formula used for ws.column_dimensions - kept in one place
     so row-height wrap estimation can never disagree with the actual column
     width the text will wrap against."""
-    return max(4.0, (xs[index + 1] - xs[index]) / 7.0)
-
-
-MAX_COL_WIDTH = 40.0
-
-
-def _widen_for_content(col_widths: list[float], col_start: int, col_end: int, text: str) -> None:
-    """Widen a single-column placement's column so its longest word fits on
-    one line, instead of Excel hyphenating every word mid-letter.
-
-    A narrow PDF-derived column (e.g. a "CANT." header) is often sized for
-    its actual VALUES (short numbers), not its own HEADER word
-    ("REFACCIONES") - at the raw PDF-point width, Excel's word-wrap has no
-    space boundary to break on inside a too-long word and splits it at any
-    character ("REF"/"ACC"/"ION"/"ES" stacked vertically), which is a real
-    defect found rendering a real document through actual Excel: visually
-    far worse than the source PDF, not "practically identical" to it. Only
-    applies to single-column placements (col_span == 1); a merged span
-    already has combined room and widening it would need to pick which of
-    several columns absorbs the extra space, so it is left alone.
-    """
-    if col_end - col_start != 1:
-        return
-    longest = max((len(word) for word in text.split()), default=0)
-    if longest > col_widths[col_start]:
-        col_widths[col_start] = min(MAX_COL_WIDTH, longest + 1)
+    # OOXML column width uses 7px maximum digit width at Calibri 11, while
+    # PDF coordinates use points (96/72 pixels per point). A minimum of
+    # four characters expanded tiny coordinate bands into wide columns.
+    pixels = max(1, round((xs[index + 1] - xs[index]) * 96 / 72))
+    return pixels / 12 if pixels < 12 else pixels / 7
 
 
 def _estimate_wrapped_lines(text: str, avail_chars: float) -> int:
@@ -337,9 +335,10 @@ def _embed_page_images(ws, page, xs: list[float], ys: list[float], issues: list)
             xl_image = XLImage(pil_image)
             xl_image.width = max(1.0, (image.location.x1 - image.location.x0) * PIXELS_PER_POINT)
             xl_image.height = max(1.0, (image.location.y1 - image.location.y0) * PIXELS_PER_POINT)
-            col = _locate(xs, image.location.x0)
-            row = _locate(ys, image.location.y0)
-            ws.add_image(xl_image, f"{get_column_letter(col + 1)}{row + 1}")
+            xl_image.anchor = AbsoluteAnchor(
+                pos=XDRPoint2D(x=round(image.location.x0 * 12700), y=round(image.location.y0 * 12700)),
+                ext=XDRPositiveSize2D(cx=round(xl_image.width * 9525), cy=round(xl_image.height * 9525)))
+            ws.add_image(xl_image)
         except Exception as exc:
             issues.append(("IMAGE_NOT_EMBEDDED", page.page_number,
                            f"{image.id}: could not embed image ({type(exc).__name__}); compare with the source PDF."))
@@ -359,6 +358,62 @@ def _open_pil_image(buffer: BytesIO):
     return PILImage.open(buffer)
 
 
+def _page_backgrounds(page, issues):
+    """Read bounded non-text raster layers to measure actual background fills.
+
+    A panel may be painted as many small rectangles or a filled vector
+    path. Its cell bbox then has no single matching fill rectangle. Sampling
+    the already captured non-text layer preserves the observed color without
+    drawing an image over editable cells or guessing a color from the font.
+    """
+    backgrounds = []
+    for image in page.images:
+        if image.kind != "graphics" or not image.data_uri:
+            continue
+        try:
+            encoded = image.data_uri.split(';base64,', 1)[1]
+            if len(encoded) > 17 * 1024 * 1024:
+                raise ValueError('Background exceeds asset budget')
+            with _open_pil_image(BytesIO(base64.b64decode(encoded, validate=True))) as raster:
+                if raster.width * raster.height > 8_000_000:
+                    raise ValueError('Background exceeds pixel budget')
+                backgrounds.append((image.location, raster.convert('RGBA')))
+        except Exception:
+            issues.append(('VISUAL_BACKGROUND_UNAVAILABLE', page.page_number,
+                           'A source background could not be sampled; compare fill colors with the PDF.'))
+    return backgrounds
+
+
+def _observed_fill(backgrounds, box):
+    if box is None or box.width <= 0 or box.height <= 0:
+        return None
+    for bounds, raster in backgrounds:
+        left, top = max(bounds.x0, box.x0), max(bounds.y0, box.y0)
+        right, bottom = min(bounds.x1, box.x1), min(bounds.y1, box.y1)
+        if (right - left) * (bottom - top) < box.width * box.height * .8 or right <= left or bottom <= top:
+            continue
+        crop = raster.crop((round((left - bounds.x0) / bounds.width * raster.width),
+                            round((top - bounds.y0) / bounds.height * raster.height),
+                            round((right - bounds.x0) / bounds.width * raster.width),
+                            round((bottom - bounds.y0) / bounds.height * raster.height)))
+        if not crop.width or not crop.height:
+            crop.close()
+            continue
+        try:
+            sample = crop.resize((16, 16), resample=0)
+            try:
+                colors = Counter(pixel[:3] for pixel in sample.getdata() if pixel[3] >= 240)
+            finally:
+                sample.close()
+        finally:
+            crop.close()
+        if colors:
+            color, count = colors.most_common(1)[0]
+            if count >= 256 * .6:
+                return ''.join(f'{channel:02X}' for channel in color)
+    return None
+
+
 def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
     """Approximate the PDF page's visual layout as one worksheet per page.
 
@@ -369,8 +424,6 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
     content still fully intact in Table_N/_Original - rather than ever
     dropping data or crashing the export.
     """
-    if not page.tables and not page.blocks:
-        return
     xs, ys = _build_page_grid(page)
     if (len(xs) - 1) * (len(ys) - 1) > 5000:
         issues.append(("VISUAL_GRID_TOO_DENSE", page.page_number,
@@ -391,9 +444,7 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
     ws = wb.create_sheet(f"Pagina_{page.page_number}")
     col_widths = [_col_width(xs, i) for i in range(len(xs) - 1)]
 
-    # Positions are computed once, up front, for every table cell and block -
-    # both the column-widening pass below and the writing loops need them,
-    # and computing them twice would risk the two copies drifting apart.
+    # Place each table and text block on the shared coordinate grid once.
     table_positions = []
     table_cell_positions = []
     for table in page.tables:
@@ -401,9 +452,20 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
         col0 = _locate(xs, table.location.x0)
         table_positions.append((row0, _locate(ys, table.location.y1), col0))
         for cell in table.cells:
-            row_start, col_start = row0 + cell.row_index, col0 + cell.col_index
-            row_end = min(len(ys) - 1, max(row_start + 1, row_start + cell.row_span))
-            col_end = min(len(xs) - 1, max(col_start + 1, col_start + cell.col_span))
+            if cell.original_source is None and not cell.content:
+                continue  # Placeholder covered by a merged source cell.
+            box = cell.original_source
+            if box is not None:
+                # The shared page grid also contains edges from OTHER tables
+                # and free text. Table row/column indices cannot index it.
+                row_start, col_start = _locate(ys, box.y0), _locate(xs, box.x0)
+                row_end = max(row_start + 1, _locate(ys, box.y1))
+                col_end = max(col_start + 1, _locate(xs, box.x1))
+            else:
+                row_start, col_start = row0 + cell.row_index, col0 + cell.col_index
+                row_end = row_start + cell.row_span
+                col_end = col_start + cell.col_span
+            row_end, col_end = min(len(ys) - 1, row_end), min(len(xs) - 1, col_end)
             table_cell_positions.append((table, cell, row_start, row_end, col_start, col_end))
 
     block_positions = [(_locate(ys, block.location.y0), _locate(ys, block.location.y1), _locate(xs, block.location.x0))
@@ -415,16 +477,30 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
         col_end = min(len(xs) - 1, max(col_start + 1, col_end_raw))
         block_cell_positions.append((block, row_start, row_end, col_start, col_end))
 
-    for _, cell, _, _, col_start, col_end in table_cell_positions:
-        _widen_for_content(col_widths, col_start, col_end, cell.content)
-    for block, _, _, col_start, col_end in block_cell_positions:
-        _widen_for_content(col_widths, col_start, col_end, block.content)
+    # Excel line boxes include leading that is absent from a PDF glyph bbox.
+    # Reuse the blank space below a positioned line before enlarging any
+    # row: otherwise every header/footer shifts the entire page downward.
+    placements = [position[2:] for position in table_cell_positions]
+    placements += [position[1:] for position in block_cell_positions]
+    for index, (block, row_start, row_end, col_start, col_end) in enumerate(block_cell_positions):
+        needed = _required_row_height(block.content, _page_runs(page, block.runs, block.content),
+                                      col_widths, col_start, col_end)
+        own_index = len(table_cell_positions) + index
+        while row_end < len(ys) - 1 and ys[row_end] - ys[row_start] < needed:
+            if any(other_index != own_index and
+                   _ranges_overlap(row_end, row_end + 1, other[0], other[1]) and
+                   _ranges_overlap(col_start, col_end, other[2], other[3])
+                   for other_index, other in enumerate(placements)):
+                break
+            row_end += 1
+        block_cell_positions[index] = (block, row_start, row_end, col_start, col_end)
+        placements[own_index] = (row_start, row_end, col_start, col_end)
 
     for i, width in enumerate(col_widths):
         ws.column_dimensions[get_column_letter(i + 1)].width = width
     # Row heights are sized AFTER every cell/block is placed below (see
     # row_height_pt), not here from raw PDF geometry alone: a cell whose text
-    # wraps into more lines at Excel's (approximate, possibly widened above)
+    # wraps into more lines at Excel's approximate
     # column width than it occupied in the source PDF needs a taller row than
     # the PDF geometry alone implies, or Excel clips it to a sliver of its
     # first line - a real defect found rendering real documents through
@@ -434,6 +510,8 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
 
     def bump_row_height(row_start: int, row_end: int, col_start: int, col_end: int,
                          text: str, runs: list[TextRun]) -> None:
+        if not text.strip():
+            return
         needed = _required_row_height(text, runs, col_widths, col_start, col_end)
         span = row_end - row_start
         if span <= 1:
@@ -444,6 +522,7 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
             if current < needed and row_end - 1 < len(row_height_pt):
                 row_height_pt[row_end - 1] += needed - current
 
+    backgrounds = _page_backgrounds(page, issues)
     occupied: set[tuple[int, int]] = set()
     for table, cell, row_start, row_end, col_start, col_end in table_cell_positions:
         span = _rect_cells(row_start, row_end, col_start, col_end)
@@ -454,8 +533,10 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
             continue
         occupied |= span
         target = ws.cell(row_start + 1, col_start + 1)
-        runs = cell.runs if cell.runs else [TextRun(content=cell.content)]
+        runs = _page_runs(page, cell.runs, cell.content)
         put_rich_text(target, runs)
+        target.border = Border(**{side: Side(style="thin", color="FF000000")
+                                  for side in ("left", "right", "top", "bottom")})
         if row_end - row_start > 1 or col_end - col_start > 1:
             ws.merge_cells(start_row=row_start + 1, start_column=col_start + 1,
                             end_row=row_end, end_column=col_end)
@@ -463,10 +544,11 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
         # ruling) carries embedded newlines; without wrap_text Excel shows
         # embedded line breaks only on one squashed line, not stacked lines.
         target.alignment = Alignment(wrap_text=True, vertical="top")
-        if table.has_header and cell.row_index < table.header_rows:
-            target.font = Font(bold=True)
-        if cell.fill_color:
-            target.fill = PatternFill(fgColor=_argb(cell.fill_color), fill_type="solid")
+        if table.has_header and cell.row_index < table.header_rows and not cell.runs:
+            target.font = Font(name="Arial", size=10, bold=True)
+        fill_color = cell.fill_color or _observed_fill(backgrounds, cell.original_source)
+        if fill_color:
+            target.fill = PatternFill(fgColor=_argb(fill_color), fill_type="solid")
         bump_row_height(row_start, row_end, col_start, col_end, cell.content, runs)
 
     for block, row_start, row_end, col_start, col_end in block_cell_positions:
@@ -478,19 +560,45 @@ def _add_page_sheet(wb: "Workbook", page, issues: list) -> None:
             continue
         occupied |= span
         target = ws.cell(row_start + 1, col_start + 1)
-        runs = block.runs if block.runs else [TextRun(content=block.content)]
+        runs = _page_runs(page, block.runs, block.content)
         put_rich_text(target, runs)
         if row_end - row_start > 1 or col_end - col_start > 1:
             ws.merge_cells(start_row=row_start + 1, start_column=col_start + 1,
                             end_row=row_end, end_column=col_end)
         target.alignment = Alignment(wrap_text=True, vertical="top")
-        if block.fill_color:
-            target.fill = PatternFill(fgColor=_argb(block.fill_color), fill_type="solid")
+        fill_color = block.fill_color or _observed_fill(backgrounds, block.location)
+        if fill_color:
+            target.fill = PatternFill(fgColor=_argb(fill_color), fill_type="solid")
         bump_row_height(row_start, row_end, col_start, col_end, block.content, runs)
 
+    for _, background in backgrounds:
+        background.close()
     for j, height in enumerate(row_height_pt):
         ws.row_dimensions[j + 1].height = height
+    # Explicit empty canvas corners retain the PDF's blank page margins in
+    # Excel's UsedRange and in viewers that ignore print-area metadata.
+    canvas_fill = PatternFill(fill_type="solid", fgColor="FFFFFFFF")
+    for corner in (ws.cell(1, 1), ws.cell(len(ys) - 1, len(xs) - 1)):
+        if corner.value is None and corner.fill.fill_type is None:
+            corner.fill = canvas_fill
     _embed_page_images(ws, page, xs, ys, issues)
+    ws.sheet_view.showGridLines = False
+    ws.sheet_view.zoomScale = 90
+    ws.print_options.horizontalCentered = False
+    ws.print_options.verticalCentered = False
+    # The explicitly styled canvas defines UsedRange. Avoid an OOXML
+    # Print_Area name here: this Excel installation retains it as a normal
+    # name and adds a second native print-area name on PageSetup changes,
+    # producing a modal name-conflict dialog when an edited copy reopens.
+    ws.page_setup.orientation = "landscape" if page.width > page.height else "portrait"
+    ws.page_setup.paperSize = ws.PAPERSIZE_LETTER if abs(page.height - 792) < 2 else ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    for side in ("left", "right", "top", "bottom", "header", "footer"):
+        setattr(ws.page_margins, side, 0)
+    ws.oddHeader.center.text = None
+    ws.oddFooter.center.text = None
 
 
 def export_xlsx(document: DocumentIR, *, numeric_columns: dict[str, dict[int, str]] | None = None) -> bytes:
@@ -561,6 +669,10 @@ def export_xlsx(document: DocumentIR, *, numeric_columns: dict[str, dict[int, st
             has_text = True
     for page in document.pages:
         _add_page_sheet(wb, page, issues)
+    # Open the editable page view, with data/provenance sheets still available.
+    page_sheets = [sheet for sheet in wb if sheet.title.startswith("Pagina_")]
+    wb._sheets = page_sheets + [sheet for sheet in wb if sheet not in page_sheets]
+    wb.active = 0
     if not document.get_all_tables():
         issues.append(("NO_TABLES", 1, "No ruled tables detected; only extracted text is exported."))
     origin = wb.create_sheet("_Origin")

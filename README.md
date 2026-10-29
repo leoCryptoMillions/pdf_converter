@@ -3,7 +3,7 @@
 MVP local para convertir PDFs digitales a **Word y Excel**, con TXT opcional,
 advertencias y descarga desde el navegador. Un usuario y un documento a la vez.
 
-**Estado al 2026-10-27:** flujo local verificado; piloto de cinco documentos
+**Estado al 2026-10-28 (0.6.4):** flujo local verificado; piloto de cinco documentos
 preparado para revisión humana. La plataforma con cuentas, trabajos y
 almacenamiento distribuido corresponde a una entrega posterior.
 
@@ -25,10 +25,12 @@ preparado también sirve `python -m apps.local_review_ui`.
 3. Convertir, revisar las advertencias y descargar los archivos.
 4. Abrirlos y comparar contenido, cifras y distribución con el original.
 
-Los archivos permanecen en `.generated/web_ui/`, **sin borrado automático**.
+Los archivos quedan en `.generated/web_ui/`, con limpieza automática tras
+24 horas de inactividad por defecto (`RETENTION_HOURS` permite ajustarlo).
 Los resultados requieren revisión. Word aproxima el diseño; Excel conserva
 las celdas como texto de forma predeterminada para proteger identificadores y
-ceros iniciales. Si no se detectan tablas, Excel contiene el texto extraído.
+ceros iniciales. Excel abre en `Pagina_1`, con una vista editable por página;
+`Table_N` conserva los datos y `Texto completo` el texto de todas las páginas.
 
 La app se utiliza en la propia máquina, vinculada a `127.0.0.1`. El MVP digital
 no necesita Docker, React, PostgreSQL, RabbitMQ, Tesseract ni Poppler. OCR
@@ -47,7 +49,7 @@ Los siguientes comandos usan el Python de ese entorno (puede reemplazarse
 `python` por `.\.venv\Scripts\python.exe`):
 
 ```powershell
-# Desarrollo: selección crítica, 44 de 88 casos actuales (50%)
+# Desarrollo: selección crítica por riesgo (objetivo aproximado del 50%)
 python -m pytest -q
 
 # Módulo modificado: incluir todos sus casos
@@ -83,6 +85,19 @@ La comparación de caracteres no verifica orden de lectura, significado ni
 apariencia. La persona revisora compara texto, cifras, estructura y diseño,
 edita, guarda y reabre los archivos, y registra su decisión en el CSV.
 Los resultados técnicos no aprueban automáticamente el Gate F0.
+
+Para comprobar con Microsoft Word y Excel instalados y generar el comparativo
+visual privado, después de preparar el paquete:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File benchmarks/render_pilot.ps1 -Batch .generated/mvp-pilot/run-01/office-batch.json
+python -m benchmarks.review_pilot --output .generated/mvp-pilot/run-01
+```
+
+Abrir `review.html` en esa carpeta: muestra el original junto a sus renders de
+Word y Excel, con descargas y copias editadas. Las aplicaciones de Office se
+ejecutan ocultas y solo escriben copias de comprobación; `revision.csv`
+conserva las decisiones humanas pendientes. Excel incluye las páginas en blanco.
 
 ## Uso por consola
 

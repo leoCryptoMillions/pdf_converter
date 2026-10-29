@@ -44,9 +44,9 @@ ASSET_ROOT = Path(__file__).with_name("local_review_assets")
 # Bump on every user-visible feature/fix so whoever opens the app can tell
 # which build they're reviewing without checking git log. Keep the note to
 # one short line describing what's new in THIS build, not a full changelog.
-APP_VERSION = "0.6.0"
-APP_VERSION_DATE = "2026-10-27"
-APP_VERSION_NOTE = "Excel ahora incluye una hoja visual por página (cuadrícula, colores, imágenes) muy similar al PDF original"
+APP_VERSION = "0.6.4"
+APP_VERSION_DATE = "2026-10-28"
+APP_VERSION_NOTE = "Excel recupera fondos de paneles para mantener legible el texto blanco del PDF"
 FORMAT_INFO = {
     "xlsx": ("Excel", "Tablas y celdas"),
     "docx": ("Word", "Diseño e imágenes"),
@@ -350,6 +350,7 @@ async def convert(
 
     warnings = summary.warnings
     friendly_warnings = {
+        "SOURCE_GLYPH_UNMAPPED": "Hay caracteres del PDF que no se pudieron decodificar. Se conservan como marcadores (cid:...). Compáralos con el original antes de usar el texto.",
         "UNVALIDATED_EXTRACTION": "Compara los archivos con el PDF original: la calidad de extracción aún no se ha verificado.",
         "OCR_REQUIRED": "Esta página no tiene texto extraíble. Vuelve a convertir con reconocimiento de texto (OCR) activado.",
         "IMAGES_NOT_EXTRACTED": "Las imágenes de esta página no se incluyen en los archivos convertidos.",

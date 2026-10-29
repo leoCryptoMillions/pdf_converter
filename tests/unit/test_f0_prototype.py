@@ -98,7 +98,8 @@ def test_xlsx_keeps_full_page_text_even_when_tables_are_found(tmp_path):
     document = extract_digital(path)
     assert document.get_all_tables()  # a table was in fact detected
     wb = load_workbook(BytesIO(export_xlsx(document)), data_only=False)
-    assert wb.sheetnames[0] == "Texto completo"
+    assert wb.active.title == "Pagina_1"
+    assert "Texto completo" in wb.sheetnames
     full_text = "\n".join(str(c.value) for row in wb["Texto completo"].iter_rows() for c in row if c.value)
     assert "ACME TALLER" in full_text
     assert "CLIENTE: Jane Doe" in full_text
@@ -219,6 +220,38 @@ def test_xlsx_captures_and_renders_a_colored_highlight_band(tmp_path):
 
 
 @pytest.mark.mvp
+def test_xlsx_page_keeps_independent_table_coordinates_fonts_and_borders(tmp_path):
+    from reportlab.pdfgen import canvas
+    source = tmp_path / 'offset-grids.pdf'
+    pdf = canvas.Canvas(str(source), pagesize=(400, 500))
+    for x, y, prefix, widths in [(40, 380, 'A', [60, 120]), (80, 200, 'B', [40, 160])]:
+        table = Table([[prefix + '_LEFT', prefix + '_RIGHT'], ['001', '2.50']],
+                      colWidths=widths, rowHeights=[24, 24])
+        table.setStyle(TableStyle([('GRID', (0, 0), (-1, -1), .5, colors.black),
+                                   ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                                   ('FONTSIZE', (0, 0), (-1, -1), 8)]))
+        table.wrapOn(pdf, sum(widths), 48)
+        table.drawOn(pdf, x, y)
+    pdf.save()
+    ir = extract_digital(source)
+    wb = load_workbook(BytesIO(export_xlsx(ir)))
+    sheet = wb.active
+    assert sheet.title == 'Pagina_1'
+    cells = {cell.value: cell for row in sheet for cell in row if cell.value}
+    # FIRST_RIGHT starts at x=100; SECOND_LEFT at x=80. Other table edges
+    # must not shift the first table into the second one's starting column.
+    assert cells['A_RIGHT'].column > cells['B_LEFT'].column
+    assert cells['A_RIGHT'].row < cells['B_LEFT'].row
+    assert cells['A_RIGHT'].font.sz == 8
+    assert cells['A_RIGHT'].font.bold
+    assert cells['A_RIGHT'].border.left.style == 'thin'
+    assert not sheet.sheet_view.showGridLines
+    assert not any(row[0] == 'VISUAL_LAYOUT_COLLISION' for row in wb['_Warnings'].values)
+    assert sheet['A1'].has_style
+    wb.close()
+
+
+@pytest.mark.mvp
 def test_xlsx_visual_page_grows_rows_so_wrapped_text_is_not_clipped(tmp_path):
     # Real-world bug (2026-10-27, found rendering real documents through
     # actual Excel, not just openpyxl round-trips): Pagina_N row heights were
@@ -257,7 +290,10 @@ def test_xlsx_visual_page_grows_rows_so_wrapped_text_is_not_clipped(tmp_path):
     data = export_xlsx(document)
     wb = load_workbook(BytesIO(data))
     ws = wb[f"Pagina_{page.page_number}"]
-    height = ws.row_dimensions[row_start + 1].height
+    anchor = ws.cell(row_start + 1, col_start + 1)
+    region = next((merged for merged in ws.merged_cells.ranges if anchor.coordinate in merged), None)
+    last_row = region.max_row if region else row_start + 1
+    height = sum(ws.row_dimensions[row].height for row in range(row_start + 1, last_row + 1))
     single_line_height = 10.0 * 1.2  # font_size * line-height multiplier, see _required_row_height.
     # A one-line-tall row would clip everything past the first wrapped line;
     # the fix must size the row for every wrapped line the text actually needs.
@@ -429,15 +465,19 @@ def test_encrypted_pdf_rejected(digital_pdf, tmp_path):
 
 
 @pytest.mark.mvp
-def test_cli_outputs_and_refuses_overwrite(digital_pdf, tmp_path):
+@pytest.mark.parametrize('formats', [['xlsx', 'docx', 'txt'], ['xlsx']])
+def test_cli_outputs_and_refuses_overwrite(digital_pdf, tmp_path, formats):
     output = tmp_path / "conversion"
     command = [sys.executable, "-m", "apps.convert", str(digital_pdf[0]), "--output", str(output),
-               "--formats", "xlsx", "docx", "txt"]
+               "--formats", *formats]
     result = subprocess.run(command, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert (output / "result.xlsx").is_file()
-    assert (output / "result.docx").is_file()
-    assert "Identifier" in (output / "result.txt").read_text(encoding="utf-8")
+    for fmt in formats:
+        assert (output / f"result.{fmt}").is_file()
+    if 'txt' in formats:
+        assert "Identifier" in (output / "result.txt").read_text(encoding="utf-8")
+    import json
+    assert json.loads((output / 'document.ir.json').read_text(encoding='utf-8'))['extraction_options']['preserve_layout'] is True
     assert (output / "summary.json").is_file()
     assert subprocess.run(command, capture_output=True).returncode == 1
 

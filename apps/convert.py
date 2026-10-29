@@ -22,7 +22,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         document = extract_digital(args.source, page_numbers=args.pages, ocr=args.ocr,
-                                   preserve_layout="docx" in args.formats)
+                                   preserve_layout=bool({"docx", "xlsx"} & set(args.formats)))
         types = {}
         if args.types:
             types = {key: {int(col): value for col, value in columns.items()}

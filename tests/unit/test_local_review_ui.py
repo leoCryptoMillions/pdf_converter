@@ -74,6 +74,38 @@ def test_rejects_non_pdf_upload():
 
 
 @pytest.mark.mvp
+def test_excel_only_keeps_page_layout_logo_and_visual_sheet(tmp_path):
+    from io import BytesIO
+    import re
+    from PIL import Image
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+    from openpyxl import load_workbook
+
+    source = tmp_path / 'excel-only.pdf'
+    pdf = canvas.Canvas(str(source), pagesize=(400, 400))
+    pdf.drawImage(ImageReader(Image.new('RGB', (40, 20), 'navy')), 40, 330, width=40, height=20)
+    pdf.setFont('Helvetica-Bold', 9)
+    pdf.drawString(40, 300, 'Editable quotation header')
+    pdf.save()
+    response = client.post('/convert', files={'file': ('source.pdf', source.read_bytes(), 'application/pdf')},
+                           data={'formats': ['xlsx']})
+    assert response.status_code == 200
+    links = re.findall(r'href="(/download/[a-f0-9]+/[^\"]+)"', response.text)
+    ir = client.get(next(link for link in links if link.endswith('document.ir.json'))).json()
+    assert ir['extraction_options']['preserve_layout'] is True
+    workbook = load_workbook(BytesIO(client.get(next(link for link in links if link.endswith('.xlsx'))).content))
+    sheet = workbook.active
+    assert sheet.title == 'Pagina_1'
+    assert len(sheet._images) >= 1
+    header = next(cell for row in sheet for cell in row if cell.value == 'Editable quotation header')
+    assert header.font.sz == 9
+    assert header.font.bold
+    assert 'Texto completo' in workbook.sheetnames
+    workbook.close()
+
+
+@pytest.mark.mvp
 def test_download_rejects_path_traversal():
     response = client.get("/download/anything/../../pyproject.toml")
     assert response.status_code == 404

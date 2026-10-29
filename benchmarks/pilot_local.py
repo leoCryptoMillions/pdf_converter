@@ -45,11 +45,19 @@ def check_exports(ir: DocumentIR, artifacts: dict[str, bytes], source: Path) -> 
                 cells_checked += 1
         formula_count = sum(cell.data_type == "f" for sheet in workbook
                             for row in sheet for cell in row)
-        fallback_matches = None
-        if not ir.get_all_tables():
-            expected = [line for page in ir.pages for line in page.extracted_text.splitlines()]
-            actual = ["" if row[0].value is None else row[0].value for row in workbook["Text"]]
-            fallback_matches = actual == expected
+        expected = [line for page in ir.pages for line in page.extracted_text.splitlines()]
+        actual = (["" if row[0].value is None else row[0].value for row in workbook["Texto completo"]]
+                  if "Texto completo" in workbook.sheetnames else None)
+        full_text_matches = actual == expected or (not expected and actual == [""])
+        layout_pages = ir.pages
+        page_sheets = [f"Pagina_{page.page_number}" for page in layout_pages]
+        layout_present = all(name in workbook.sheetnames for name in page_sheets)
+        image_counts = [{"page": page.page_number,
+                         "expected": sum(image.kind != "graphics" and bool(image.data_uri) for image in page.images),
+                         "actual": len(workbook[f"Pagina_{page.page_number}"]._images)
+                                   if f"Pagina_{page.page_number}" in workbook.sheetnames else 0}
+                        for page in layout_pages]
+        collisions = sum(row[0] == "VISUAL_LAYOUT_COLLISION" for row in workbook["_Warnings"].values)
         text = word_text(word)
         checks = {
             "word_has_editable_content": bool(text.strip()),
@@ -58,14 +66,43 @@ def check_exports(ir: DocumentIR, artifacts: dict[str, bytes], source: Path) -> 
             "xlsx_cells_match_ir": cells_match,
             "xlsx_formula_count": formula_count,
             "xlsx_has_provenance": {"_Origin", "_Original", "_Warnings"} <= set(workbook.sheetnames),
-            "xlsx_text_fallback_matches_ir": fallback_matches,
+            "xlsx_full_text_matches_ir": full_text_matches,
+            "xlsx_page_sheets": page_sheets,
+            "xlsx_blank_source_pages": [p.page_number for p in ir.pages if not (p.tables or p.blocks or p.images)],
+            "xlsx_layout_present": layout_present,
+            "xlsx_opens_visual_page": bool(page_sheets) and workbook.active.title == page_sheets[0],
+            "xlsx_images": image_counts,
+            "xlsx_images_match_ir": all(row["expected"] == row["actual"] for row in image_counts),
+            "xlsx_visual_collisions": collisions,
             "txt_matches_ir": artifacts["result.txt"].decode("utf-8") == ir.get_all_text(),
             "all_pages_processed": len(ir.pages) == ir.page_count,
         }
+        # Exercise edits on in-memory copies. The downloaded files remain intact.
+        marker = "[PILOT_EDIT_TEST]"
+        paragraph = next((p for p in word.paragraphs if p.text.strip()), None)
+        if paragraph is None:
+            paragraph = word.add_paragraph()
+        paragraph.add_run(marker)
+        edited_word = BytesIO()
+        word.save(edited_word)
+        checks["python_word_edit_save_reopen"] = marker in word_text(Document(BytesIO(edited_word.getvalue())))
+        target = next((cell for row in workbook.active for cell in row if cell.value is not None), None)
+        if target is None:
+            checks["python_excel_edit_save_reopen"] = False
+        else:
+            coordinate = target.coordinate
+            target.value = str(target.value) + marker
+            edited_excel = BytesIO()
+            workbook.save(edited_excel)
+            reopened = load_workbook(BytesIO(edited_excel.getvalue()))
+            checks["python_excel_edit_save_reopen"] = marker in str(reopened.active[coordinate].value)
+            reopened.close()
         checks["passed"] = all((checks["word_has_editable_content"],
             checks["word_vs_pdfium"]["exact_character_multiset"], cells_match,
             formula_count == 0, checks["xlsx_has_provenance"], checks["txt_matches_ir"],
-            checks["all_pages_processed"], fallback_matches is not False))
+            checks["all_pages_processed"], full_text_matches, layout_present,
+            checks["xlsx_opens_visual_page"], checks["xlsx_images_match_ir"], collisions == 0,
+            checks["python_word_edit_save_reopen"], checks["python_excel_edit_save_reopen"]))
         return checks
     finally:
         workbook.close()
@@ -94,12 +131,14 @@ def prepare(output: Path, file_ids: list[str]) -> dict:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "scope": "Local single-user digital PDF pilot; OCR disabled; no F0 gate approval.",
         "human_acceptance": "pending",
+        "app_version": local_review_ui.APP_VERSION,
         "versions": {name: version(name) for name in
                      ("pdfplumber", "pypdfium2", "python-docx", "openpyxl", "fastapi", "httpx")},
         "code_sha256": {name: sha256((private_root.parent / name).read_bytes()).hexdigest() for name in
-                        ("apps/local_review_ui.py", "packages/converters/digital.py",
+                        ("apps/local_review_ui.py", "apps/conversion_isolation.py", "packages/converters/digital.py",
                          "packages/converters/layout.py", "packages/exporters/docx.py",
-                         "packages/exporters/xlsx.py", "benchmarks/pilot_local.py")},
+                         "packages/exporters/xlsx.py", "packages/document_ir/models.py", "benchmarks/pilot_local.py",
+                         "benchmarks/render_pilot.ps1", "benchmarks/render_word.ps1")},
         "cases": [],
     }
     previous_root = local_review_ui.OUTPUT_ROOT
@@ -110,6 +149,7 @@ def prepare(output: Path, file_ids: list[str]) -> dict:
                 started = time.monotonic()
                 case = {"id": row.file_id, "human_acceptance": "pending"}
                 report["cases"].append(case)
+                stage = "upload_conversion"
                 try:
                     with row.pdf_path.open("rb") as source:
                         response = client.post("/convert", files={"file": ("source.pdf", source, "application/pdf")},
@@ -117,6 +157,7 @@ def prepare(output: Path, file_ids: list[str]) -> dict:
                     if response.status_code != 200:
                         raise ValueError(f"Conversion HTTP {response.status_code}")
                     links = re.findall(r'href="(/download/[a-f0-9]+/[^\"]+)"', response.text)
+                    stage = "download"
                     artifacts = {}
                     for link in links:
                         download = client.get(link)
@@ -135,6 +176,9 @@ def prepare(output: Path, file_ids: list[str]) -> dict:
                     # Preserve the uploaded source already written by the HTTP app.
                     (case_dir / "source.pdf").write_bytes((output / "jobs" / job_id / "source.pdf").read_bytes())
                     source_matches = sha256((case_dir / "source.pdf").read_bytes()).hexdigest() == ir.source_hash
+                    case.update({"source_sha256": ir.source_hash, "pages": ir.page_count,
+                                 "tables": len(ir.get_all_tables())})
+                    stage = "check_exports"
                     checks = check_exports(ir, artifacts, case_dir / "source.pdf")
                     checks["source_hash_matches"] = source_matches
                     checks["passed"] &= source_matches
@@ -145,6 +189,7 @@ def prepare(output: Path, file_ids: list[str]) -> dict:
                 except Exception as exc:
                     # Keep other cases reviewable; do not print private document content.
                     case["error_type"] = type(exc).__name__
+                    case["error_stage"] = stage
                 case["duration_s"] = round(time.monotonic() - started, 3)
                 print(f"{row.file_id}: {'checks_passed' if case.get('checks', {}).get('passed') else 'needs_attention'}; human=pending")
     finally:
@@ -152,13 +197,43 @@ def prepare(output: Path, file_ids: list[str]) -> dict:
     report["checks_passed"] = all(case.get("checks", {}).get("passed", False) for case in report["cases"])
     (output / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     with (output / "revision.csv").open("w", newline="", encoding="utf-8-sig") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["id", "automated_checks", "text_order", "critical_values", "table_structure",
-                         "word_appearance", "edit_save_reopen", "decision", "reviewer", "notes"])
+        fields = ["id", "automated_checks", "text_order", "critical_values", "table_structure",
+                  "word_appearance", "excel_appearance", "edit_save_reopen", "decision", "reviewer", "notes"]
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
         for case in report["cases"]:
-            writer.writerow([case["id"], "pass" if case.get("checks", {}).get("passed") else "review",
-                             *(["pending"] * 6), "", ""])
+            review = {field: "pending" for field in fields}
+            review.update(id=case["id"], automated_checks="pass" if case.get("checks", {}).get("passed") else "review",
+                          reviewer="", notes="")
+            writer.writerow(review)
+    write_office_batch(output, report)
     return report
+
+
+def write_office_batch(output: Path, report: dict) -> dict:
+    """Describe separate render/edit copies for the installed Office applications."""
+    output = output.resolve()
+    batch = {"app_version": report["app_version"], "cases": []}
+    for case in report["cases"]:
+        directory = output / case["id"]
+        if not (directory / "result.docx").is_file() or not (directory / "result.xlsx").is_file():
+            continue
+        ir = DocumentIR.model_validate_json((directory / "document.ir.json").read_bytes())
+        batch["cases"].append({
+            "id": case["id"], "docx": str(directory / "result.docx"),
+            "pdf": str(directory / "word-render.pdf"),
+            "edited_docx": str(directory / "edited-in-word.docx"),
+            "word_report": str(directory / "word-runtime.json"),
+            "xlsx": str(directory / "result.xlsx"),
+            "edited_xlsx": str(directory / "edited-in-excel.xlsx"),
+            "excel_report": str(directory / "excel-runtime.json"),
+            "excel_pages": [{"sheet": f"Pagina_{page.page_number}", "page": page.page_number,
+                             "width": page.width, "height": page.height,
+                             "pdf": str(directory / f"excel-page-{page.page_number}.pdf")}
+                            for page in ir.pages],
+        })
+    (output / "office-batch.json").write_text(json.dumps(batch, indent=2), encoding="utf-8")
+    return batch
 
 
 def main() -> None:
