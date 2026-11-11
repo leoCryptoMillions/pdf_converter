@@ -433,6 +433,13 @@ aclaración no altera los estados de las once áreas: `verification_coverage`
 
 ## Próxima actualización esperada
 
+Registro de cierre 2026-11-10: punto de continuación guardado en
+`docs/AVANCE.md`, por petición del usuario de continuar después. Sin impacto
+en las brechas, fuentes ni estados del dashboard: solo se conserva el estado
+ya verificado y la referencia a los commits locales. `verification_coverage`
+**18% (2/11)** y `decision_coverage` **27% (3/11)**. No requiere otra ejecución
+de pruebas ni cambios de datos en `index.html`.
+
 Disparador según `docs/mantenimiento-dashboard.md`: antes de cerrar
 cualquier tarea de P01 (corpus), P02 (benchmark), o al resolver el hallazgo
 de F0-08, actualizar este dashboard siguiendo el procedimiento de §5 de la

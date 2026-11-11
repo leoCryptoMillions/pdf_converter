@@ -4,6 +4,18 @@ Versión del Plan: 1.2.0
 Fecha de Actualización: 2026-11-10
 Estado Actual: **Piloto local Word/Excel aceptado por el usuario; Gate F0 pendiente**
 
+## Punto de continuación guardado — 2026-11-10
+
+Sesión cerrada a petición del usuario para continuar después. Base guardada:
+`594dbcb` (correcciones del MVP 0.7.0) y `21ef0a6` (alcance exclusivo web en
+Windows). Resultado verificado: 144 pruebas aprobadas, 1 omisión de OCR opcional,
+75.24% de cobertura y dashboard comprobado tras el ajuste de alcance.
+
+Para retomar, leer esta sección y `docs/CORRECCIONES_MVP_0.7.0.md`. La entrega
+requerida es web en Windows; el piloto de cinco documentos está aceptado.
+Los pendientes generales de Gate F0 están descritos en el informe. La evidencia
+y los documentos privados permanecen locales en `.generated/` y el corpus.
+
 **Cierre de revisión del piloto (2026-10-28):** el usuario revisó y aceptó
 los cinco documentos del paquete versión 0.6.4. La aceptación por documento
 quedó registrada en `.generated/mvp-pilot-20261028/final-v3/revision.csv`;
