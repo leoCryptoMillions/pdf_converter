@@ -406,7 +406,7 @@ y conserva la congelación de cambios cosméticos del alcance activo.
 
 | Fecha | Tarea/avance | Áreas | Fuentes/evidencia | Verificaciones | Decisión pendiente |
 |---|---|---|---|---|---|
-| 2026-11-10 | Implementar los siete paquetes H01–H12 y conciliar producto/documentación | F0-03, F0-04, F0-06, F0-07, F0-08, F0-09, F0-10, F0-11; BLK-02 y RSK-05 | `docs/CORRECCIONES_MVP_0.7.0.md` (SRC-36), código MVP, locks, scripts y guías; `.generated/release-check/report.json`, `coverage.json`, `sbom.json`, wheel instalado y reportes Chromium. | Cierre completo con auditoría aprobado: 144 tests, 1 omisión OCR opcional, cobertura de ramas 75.24%; instalación runtime vacía y edición/reapertura con bibliotecas Office; inventario 26 componentes/26 avisos; cero vulnerabilidades conocidas. Navegador: UI y dashboard (detalle, cancelar/guardar/exportar, sin errores); lanzador Windows -Check correcto. | Piloto de cinco documentos aceptado se conserva. Gate F0, muestra representativa y distribución/costos pendientes; Linux no ejecutado, servicio remoto no actualizado. Actions sigue manual. |
+| 2026-11-10 | Implementar los siete paquetes H01–H12 y conciliar producto/documentación | F0-03, F0-04, F0-06, F0-07, F0-08, F0-09, F0-10, F0-11; BLK-02 y RSK-05 | `docs/CORRECCIONES_MVP_0.7.0.md` (SRC-36), código MVP, locks, scripts y guías; `.generated/release-check/report.json`, `coverage.json`, `sbom.json`, wheel instalado y reportes Chromium. | Cierre completo con auditoría aprobado: 144 tests, 1 omisión OCR opcional, cobertura de ramas 75.24%; instalación runtime vacía y edición/reapertura con bibliotecas Office; inventario 26 componentes/26 avisos; cero vulnerabilidades conocidas. Navegador: UI y dashboard (detalle, cancelar/guardar/exportar, sin errores); lanzador Windows -Check correcto. | Piloto de cinco documentos aceptado se conserva. Gate F0, muestra representativa y distribución/costos pendientes; Linux fuera de alcance por instrucción posterior del usuario; servicio remoto no actualizado. Actions sigue manual. |
 
 `index.html` distingue ahora la base histórica del 2026-10-20 de la actualización
 parcial del 2026-11-10. Se corrige BLK-02 (ya no afirma un solo diseño probado),
@@ -419,6 +419,17 @@ Fuentes no revisadas conservan su fecha o `pending_reconciliation`; no se
 renueva el snapshot global ni se inventan hashes/certificaciones. La prueba
 Chromium final se ejecutó con estos datos. Indicadores conservados:
 `verification_coverage` **18% (2/11)** y `decision_coverage` **27% (3/11)**.
+
+## Plataforma requerida: web en Windows
+
+| Fecha | Tarea/avance | Áreas | Fuentes/evidencia | Verificaciones | Decisión pendiente |
+|---|---|---|---|---|---|
+| 2026-11-10 | Aplicar la instrucción del usuario: solo versión web en Windows | F0-10, F0-11 | `docs/ALCANCE.md` (SRC-37), plan, README, guías, informe y `.github/workflows/tests.yml`; plataforma registrada en fuentes y dashboard. | Referencias y workflow revisados. `node tests/e2e/gaps_dashboard.cjs` aprobado: detalle, cancelar/guardar/exportar, estados y métricas conservados, sin errores de navegador. No se repite la regresión del conversor por este cambio documental/de CI. | No se requiere versión ni validación Linux. Piloto aceptado conservado; los restantes criterios del Gate F0 siguen pendientes. Actions continúa manual. |
+
+El workflow usa únicamente `windows-latest`. La CLI y el código portátil
+existentes son auxiliares internos, sin crear una entrega Linux. Esta
+aclaración no altera los estados de las once áreas: `verification_coverage`
+**18% (2/11)** y `decision_coverage` **27% (3/11)**.
 
 ## Próxima actualización esperada
 

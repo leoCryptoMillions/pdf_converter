@@ -8,6 +8,11 @@
 
 ## Entrega activa: MVP local de Word y Excel
 
+**Plataforma obligatoria, por instrucción del usuario:** solo la versión web
+ejecutada en Windows, con acceso desde el navegador. No se requiere una versión
+Linux ni su validación; Linux queda fuera de los criterios de entrega y cierre.
+La CLI existente es una herramienta técnica auxiliar del mismo conversor.
+
 Prioridad autorizada el 2026-10-27: terminar primero un piloto local de un
 usuario. Esta sección prevalece sobre el alcance ampliado de las tablas
 posteriores. La aceptación humana del piloto de cinco documentos está registrada;

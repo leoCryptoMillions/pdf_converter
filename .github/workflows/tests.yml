@@ -6,10 +6,7 @@ on:
 
 jobs:
   release:
-    strategy:
-      matrix:
-        os: [windows-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,13 +19,13 @@ jobs:
       - name: Install locked dependencies
         run: python -m pip install --require-hashes -r requirements-mvp-dev.lock
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install chromium
       - name: Complete regression, coverage, wheel, inventory, browser and vulnerability audit
         run: python -m scripts.check_release --audit
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mvp-checks-${{ matrix.os }}
+          name: mvp-checks-windows
           path: |
             .generated/release-check/
             .generated/ui-check/

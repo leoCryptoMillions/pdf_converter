@@ -34,9 +34,10 @@ Los casos de HTTP/instalación generan PDFs ficticios y no necesitan el corpus
 privado. La prueba de OCR real se omite si faltan sus dependencias opcionales;
 el límite Windows se prueba con una asignación que excede un Job Object real.
 
-La matriz manual Windows/Linux está declarada en el workflow, sin ejecutar
-Actions automáticamente. El informe de esta entrega distingue la ejecución
-local Windows de cualquier validación Linux pendiente.
+La única plataforma requerida es la versión web ejecutada en Windows y usada
+desde el navegador. El workflow manual usa exclusivamente `windows-latest`,
+sin activar Actions automáticamente. Linux queda fuera de alcance: su versión
+y validación no son requisitos ni pendientes del cierre.
 
 ## Regresiones protegidas
 

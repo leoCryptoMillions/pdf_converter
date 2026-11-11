@@ -4,16 +4,21 @@ Versión: 1.2.0 (se conserva el nombre del archivo para mantener sus enlaces)
 
 Fecha base: 2026-10-07 · Revisión de requisitos Word: 2026-10-26
 
+**Plataforma vigente, por instrucción directa del usuario:** solo la versión
+web ejecutada en Windows y utilizada desde el navegador. Linux queda fuera
+de alcance; no se requiere versión Linux ni su validación para entregar.
+Esta decisión prevalece sobre las propuestas históricas de infraestructura.
+
 **Prioridad vigente — 2026-10-27:** por autorización del usuario, la entrega
 inmediata se limita al MVP local de un usuario: PDF digital → Word/Excel,
 TXT existente, revisión y descarga. Reutilizar la interfaz local; posponer
 cuentas, organizaciones, colas, infraestructura distribuida, formatos nuevos
 y mejoras de OCR. Congelar cambios cosméticos y funciones secundarias.
-La selección diaria de pruebas cubre el 50% de los casos actuales por riesgo;
+La selección diaria de pruebas prioriza los casos críticos por riesgo;
 mantener la suite completa para cierres. Los criterios del piloto y los
 comandos vigentes están en `docs/ALCANCE.md` y `README.md`. El resto de este
-plan conserva la hoja de ruta ampliada. La aceptación humana y Gate F0
-siguen pendientes; el recorte no acredita F1.
+plan conserva la hoja de ruta ampliada. El piloto de cinco documentos fue
+aceptado el 2026-10-28; el Gate F0 sigue pendiente y el recorte no acredita F1.
 
 Idioma: español  
 Estado: plan de producto con prototipo local y mediciones F0; Gate F0 pendiente. El alcance implementado se registra en `docs/AVANCE.md`.
@@ -24,7 +29,7 @@ Destinatarios: cualquier IA de desarrollo, equipo humano, responsable de product
 
 Construir una aplicación web que transforme PDFs digitales, escaneados y mixtos en archivos editables y reutilizables: Excel (.xlsx), Word (.docx), CSV, TXT, Markdown, JSON y PNG/JPEG. Debe mostrar los resultados inciertos, conservar procedencia y permitir revisar tablas antes de descargar.
 
-**Framework principal seleccionado: FastAPI con Python.** Interfaz: React con TypeScript y Vite. Conversiones: workers Python separados mediante Celery y RabbitMQ. Persistencia: PostgreSQL. Archivos: almacenamiento privado compatible con S3. Despliegue: contenedores Linux.
+**Framework principal seleccionado: FastAPI con Python.** La entrega vigente es web en Windows, con la interfaz existente. La hoja de ruta ampliada propone React con TypeScript y Vite, workers Python con Celery y RabbitMQ, PostgreSQL y almacenamiento privado compatible con S3; estos componentes permanecen diferidos. No se requiere un despliegue Linux.
 
 Esta es la mejor elección para el alcance asumido porque facilita utilizar herramientas documentales Python sin añadir un servicio en otro lenguaje. La selección del framework no determina la calidad de conversión: esta depende del motor, de la clase de PDF y de los exportadores. Antes de desarrollar toda la plataforma se debe demostrar la viabilidad de Excel y Word con documentos representativos.
 
@@ -34,7 +39,7 @@ Se asume una app web para escritorio y móvil, interfaz en español, usuarios au
 
 | Decisión | Valor inicial | Cuándo revisarla |
 | --- | --- | --- |
-| Modalidad | Web; backend en Linux | Si se exige procesamiento sin internet o en la computadora del usuario |
+| Modalidad | Web con servidor en Windows; Linux fuera de alcance | Solo ante una nueva instrucción explícita del usuario que amplíe plataformas |
 | Procesamiento | Local a la infraestructura del producto | Antes de integrar API documental externa |
 | Tamaño | 25 MB por PDF | Al medir memoria y rendimiento |
 | Páginas | 100 por trabajo | Al cerrar F0 |

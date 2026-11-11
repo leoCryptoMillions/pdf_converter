@@ -11,6 +11,15 @@ el informe técnico y el comparativo local reflejan el cierre. Se acepta el
 resultado del piloto para continuar el MVP. Esto no equivale a aprobar el
 Gate F0 ni certifica fidelidad exacta para otros PDFs.
 
+## Plataforma requerida — web en Windows
+
+Por instrucción directa del usuario, la única entrega requerida es la versión
+web ejecutada en Windows, utilizada desde el navegador. Linux queda fuera de
+alcance; no se requiere una versión Linux ni su validación para entregar el
+MVP. El workflow manual se limita a Windows. Plan, guías, informe y dashboard
+reflejan esta decisión; se retira Linux de los pendientes. La aceptación del
+piloto y los otros criterios del Gate F0 se conservan.
+
 ## Correcciones implementadas — MVP 0.7.0, 2026-11-10
 
 Se implementaron los siete paquetes del plan H01–H12: acceso con configuración
@@ -29,7 +38,7 @@ auditoría del runtime sin vulnerabilidades conocidas y SBOM generado.
 Arranque Windows: `iniciar.cmd`; verificación sin servir: `iniciar.cmd -Check`.
 Guías y dashboard conciliados para el alcance del MVP. Se mantiene el workflow
 manual, sin activar Actions. No se inspeccionó ni actualizó el servicio remoto;
-la ejecución Linux queda pendiente antes de afirmar validación allí.
+la plataforma requerida y validada es la versión web en Windows.
 
 La aceptación de los cinco documentos del piloto sigue vigente. Corpus amplio,
 adjudicación representativa, revisión de distribución/costos y Gate F0 continúan

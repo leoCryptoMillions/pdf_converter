@@ -1,7 +1,8 @@
 # Operación del MVP 0.7.0
 
 Actualizado: 2026-11-10. Un usuario, un proceso, una réplica y almacenamiento
-local del servidor. La app activa es `apps.local_review_ui`; los procedimientos
+local del servidor Windows. La entrega requerida es web en Windows, con acceso
+desde el navegador. La app activa es `apps.local_review_ui`; los procedimientos
 de PostgreSQL/Celery del diseño futuro no operan este MVP.
 
 ## Arranque y salud

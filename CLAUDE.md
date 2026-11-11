@@ -10,7 +10,9 @@ pilot was accepted on 2026-10-28; the general F0 gate remains pending.
 `docs/ALCANCE.md` and the current README govern this scope. Actual versions and
 hashes are in `requirements-mvp.lock` / `requirements-mvp-dev.lock`; install
 with `--require-hashes`. Run `python -m scripts.check_release --audit` for the
-full local check; Windows was verified, the prepared Linux matrix has not run.
+full local check. The only required product is the web version running on
+Windows and accessed through a browser. Linux is outside the user-approved
+scope: do not require a Linux version, CI runner or validation for delivery.
 
 The architecture and examples below describe the target platform and historical
 design. Accounts, DB, broker, distributed workers/storage and extra formats are

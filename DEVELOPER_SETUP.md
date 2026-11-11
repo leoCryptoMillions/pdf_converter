@@ -14,9 +14,9 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m apps.local_review_ui
 ```
 
-En Linux, usar `.venv/bin/python` en los mismos comandos. El cierre local de
-esta entrega se ejecutó en Windows; la matriz manual Linux queda disponible
-para comprobar esa plataforma, sin afirmar que se haya ejecutado en GitHub.
+La única entrega requerida es la versión web ejecutada en Windows y utilizada
+desde el navegador. El desarrollo y el cierre se verifican en Windows; Linux
+queda fuera del alcance y no constituye una validación pendiente.
 
 Abrir http://127.0.0.1:8420/. Para uso sin herramientas de desarrollo,
 `iniciar.cmd` crea el entorno e instala únicamente el runtime. `iniciar.cmd

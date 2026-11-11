@@ -381,6 +381,7 @@ const review = {
   baseline_version: "PLAN_APP_CONVERSION_PDF_v1.0.md — plan v1.0.0",
   source_revision: {head:"19eb900", working_tree:"clean", note:"Referencia histórica del 2026-10-20; no describe el HEAD ni el árbol actuales. Actualización parcial del MVP sobre de9c513 el 2026-11-10; otras fuentes conservan su fecha o quedan pendientes de conciliación."},
   scope_update: {date:"2026-11-10", baseline:"de9c513", report:"docs/CORRECCIONES_MVP_0.7.0.md", scope:"MVP local, piloto aceptado, seguridad, entrega y coherencia documental; sin aprobación de Gate F0"},
+  platform_scope: {"interface": "web", "runtime": "Windows", "linux_required": false, "authority": "Instrucción directa del usuario: solo la versión web en Windows", "date": "2026-11-10"},
   guide_version: "4.0.1",
   schema_version: 2
 };
@@ -574,7 +575,7 @@ const deliverables = [
     id:"F0-10", title:"CI/CD (GitHub Actions)", category:"Infraestructura",
     risk_category:"operativo", kind:"ok", priority:"Resuelto — decisión deliberada",
     owner_role:"Responsable DevOps (rol sugerido)",
-    official_status:"GitHub Actions deshabilitado explícitamente (enabled: false), confirmado vía API según AVANCE.md. El workflow local conserva solo ejecución manual. Es una decisión deliberada registrada, no una ausencia accidental. Actualización 2026-11-10: workflow exclusivamente manual preparado para Windows/Linux, dependencias bloqueadas, cobertura >=70%, wheel instalado fuera del repositorio, inventario/auditoría y Chromium. El comando local de cierre pasó en Windows; no se ejecutaron ni activaron Actions y no se certifica la matriz Linux por su mera declaración.",
+    official_status:"GitHub Actions deshabilitado explícitamente (enabled: false), confirmado vía API según AVANCE.md. El workflow local conserva solo ejecución manual. Es una decisión deliberada registrada, no una ausencia accidental. Actualización 2026-11-10: workflow exclusivamente manual para la versión web en Windows, dependencias bloqueadas, cobertura >=70%, wheel instalado fuera del repositorio, inventario/auditoría y Chromium. El comando local de cierre pasó en Windows; no se ejecutaron ni activaron Actions. Por instrucción directa del usuario solo se requiere web en Windows; Linux queda fuera de alcance y se retira de la validación pendiente.",
     implementation_status:"implemented", verification_status:"pending", decision_status:"accepted",
     implemented_by:null, verified_by:null, decided_by:null, authority_ref:null, history:[], objection:null, review_by:null,
     source_refs:["docs/CORRECCIONES_MVP_0.7.0.md","docs/AVANCE.md#punto-de-continuación-guardado--2026-10-08"],
@@ -584,7 +585,7 @@ const deliverables = [
     fields:fields([
       {key:"context", label:"Contexto adicional observado", hint:"Por qué se deshabilitó.", example:"Evitar consumo de minutos de Actions mientras el proyecto está en fase F0 local."},
       {key:"evidence", label:"Evidencia aportada", hint:"Cómo se confirmó.", example:"Verificación vía API de GitHub, registrada en AVANCE.md."},
-      {key:"limits", label:"Límites observados", hint:"Qué falta si se reactiva.", example:"Pipeline manual definido; ejecución Windows/Linux en GitHub todavía no realizada."},
+      {key:"limits", label:"Límites observados", hint:"Qué falta si se reactiva.", example:"Pipeline manual exclusivo de Windows definido; ejecución en GitHub todavía no realizada. Linux no es requisito."},
       {key:"next", label:"Siguiente acción propuesta", hint:"Paso concreto si cambia la decisión.", example:"Revisar la matriz manual ya preparada y su evidencia si se decide habilitar Actions."}
     ])
   },
@@ -669,7 +670,8 @@ const sources = [
   {id:"SRC-06", path:"apps/worker/tasks.py", section:"Completo (242 líneas)", status:"pending_reconciliation", revisado_el:null, vigencia_max_dias:30, note:"Solo conteo de líneas verificado; contenido no releído en esta sesión."},
   {"id": "SRC-07", "path": "docs/LICENCIAS.md", "section": "Inventario técnico, pendientes y uso PDFium en Word", "status": "reconciled", "revisado_el": "2026-11-10", "vigencia_max_dias": 30, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Leído completo; se registra el nuevo uso de PDFium para la salida Word y se corrige la atribución genérica LGPL del dashboard. No se regeneró el inventario histórico ni se emitió aprobación de licencias/distribución. Actualización parcial 2026-11-10: revisado el contenido modificado para 0.7.0 y contrastado con el cierre técnico; ver SRC-36. La historia previa conserva su alcance."},
   {"id": "SRC-08", "path": "CLAUDE.md", "section": "Completo", "status": "reconciled", "revisado_el": "2026-10-20", "vigencia_max_dias": 60, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Leído completo como instrucciones del repositorio para esta sesión. Actualización parcial 2026-11-10: encabezado de alcance activo y versiones del MVP conciliados; el diseño histórico sigue rotulado como objetivo futuro."},
-  {id:"SRC-36", path:"docs/CORRECCIONES_MVP_0.7.0.md", section:"Correcciones H01–H12 y evidencia del cierre", status:"reconciled", revisado_el:"2026-11-10", vigencia_max_dias:30, note:"Actualización parcial: código MVP, locks, wheel limpio, pruebas, inventario y dashboard. No renueva fuentes históricas ni aprueba Gate F0."}
+  {id:"SRC-36", path:"docs/CORRECCIONES_MVP_0.7.0.md", section:"Correcciones H01–H12 y evidencia del cierre", status:"reconciled", revisado_el:"2026-11-10", vigencia_max_dias:30, note:"Actualización parcial: código MVP, locks, wheel limpio, pruebas, inventario y dashboard. No renueva fuentes históricas ni aprueba Gate F0."},
+  {"id": "SRC-37", "path": "docs/ALCANCE.md", "section": "Entrega activa: plataforma obligatoria web en Windows", "status": "reconciled", "revisado_el": "2026-11-10", "vigencia_max_dias": 30, "last_scope_checkpoint_id": null, "hash": null, "hash_algorithm": "sha256", "hashed_at": null, "hashed_ref": null, "note": "Por instrucción directa del usuario se requiere solo la versión web ejecutada en Windows y utilizada desde el navegador. Linux queda fuera de alcance y de validaciones pendientes. Plan, guías y workflow manual exclusivo de Windows conciliados. Piloto aceptado y restantes criterios de Gate F0 conservados."}
 ];
 
 const milestones = [

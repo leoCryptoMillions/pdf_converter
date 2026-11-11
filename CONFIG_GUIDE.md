@@ -1,5 +1,8 @@
 # Configuración del MVP 0.7.0
 
+Plataforma requerida: versión web ejecutada en Windows y utilizada desde el
+navegador. Linux queda fuera de alcance y no requiere validación.
+
 Actualizado: 2026-11-10. La configuración efectiva está en
 `apps/runtime_config.py`. Se lee una vez al importar la app: reiniciar tras
 cambiar variables. `.env.example` es una plantilla; no existe carga automática
@@ -14,7 +17,7 @@ de `.env`.
 | CONVERT_CONCURRENCY / WEB_CONCURRENCY / UVICORN_WORKERS | 1 | Solo se admite 1; ejecutar un proceso y una réplica. |
 | CONVERT_TIMEOUT_SECONDS | 90 | Fecha límite de conversión y transferencia IPC. |
 | CONVERT_GRACE_SECONDS | 5 | Espera de terminación antes de forzar cierre. |
-| CONVERT_MEMORY_LIMIT_MB | 768 | Entero positivo; Job Object en Windows, RLIMIT_AS en POSIX; si falla su activación se rechaza convertir. |
+| CONVERT_MEMORY_LIMIT_MB | 768 | Entero positivo; Job Object en Windows; si falla su activación se rechaza convertir. |
 | RETENTION_HOURS | 24 | Caducidad fija desde la creación del trabajo; las descargas no la renuevan. |
 | CLEANUP_INTERVAL_SECONDS | 3600 | Barrido al arrancar y cada intervalo. |
 | MAX_STORAGE_MB | 2048 | Presupuesto total del directorio web; debe ser ≥ MAX_JOB_MB. |

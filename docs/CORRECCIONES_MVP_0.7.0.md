@@ -16,12 +16,12 @@ del piloto 0.6.4 se conserva; el Gate F0 general sigue pendiente.
 | H02 · IPC | Recepción concurrente con la supervisión; fecha límite común, mensajes acotados y detalles en disco. Preview de hasta 6000 caracteres; notas limitadas por cantidad y bytes sin perder el informe completo. Conexiones/proceso cerrados en finally. | `apps/conversion_isolation.py`; hijo real con 1000 advertencias, EOF y advertencias Unicode extensas. |
 | H03 · Admisión/disco | Límite del cuerpo durante recepción, del archivo antes del spool y de campos/archivos multipart. Admisión antes de recibir, respuesta 409 si está ocupado, presupuesto total/por trabajo y reserva de disco. | `apps/request_guard.py`, `job_store.py`; bytes reales sin Content-Length, archivo en límite/+1 byte, archivos extra, bloqueo entre procesos y falta de capacidad sin persistir el PDF. |
 | H04 · Cancelación | El supervisor conserva la admisión hasta terminar el executor/hijo, incluso si se cancela el handler. Apagado señala cancelación y espera supervisores. Bloqueo de sistema adicional para procesos que comparten directorio. | Solicitud cancelada con executor activo y rechazo de la siguiente hasta terminar; prueba de timeout/terminación. Solo se soporta un proceso y una réplica. |
-| H05 · Memoria | Windows Job Objects con límites de proceso/job y cierre de descendientes; POSIX RLIMIT_AS. El límite se activa antes de importar el parser y cualquier fallo impide convertir. | Límite real Windows de 96 MiB contiene una asignación de 200 MiB en un hijo. Se elimina la antigua omisión Windows. La implementación POSIX está preparada; no se ejecutó esta entrega en Linux. |
+| H05 · Memoria | Windows Job Objects con límites de proceso/job y cierre de descendientes; POSIX RLIMIT_AS. El límite se activa antes de importar el parser y cualquier fallo impide convertir. | Límite real Windows de 96 MiB contiene una asignación de 200 MiB en un hijo. Se elimina la antigua omisión Windows. La ruta POSIX queda fuera del alcance requerido; Linux no requiere versión ni validación para esta entrega web en Windows. |
 | H06 · Notas | Recolector común con documento/página/bloque/tabla/celda y deduplicación. El exportador XLSX incorpora sus propias incidencias al IR. La UI muestra procedencia y total; `warnings.json` conserva todas las notas. `_Warnings` y el anexo DOCX usan la colección disponible al exportar. | `packages/document_ir/warnings.py`, exportadores y prueba HTTP con celda combinada; IR 1.3.0 añade contexto opcional, manteniendo lectura de versiones anteriores. |
 | H07 · Retención | Metadatos de creación, caducidad y estado; publicación completa desde staging; limpieza de fallos y huérfanos. Barrido inicial y periódico, bloqueo de trabajos activos, descarga vencida 410 y fallos de borrado observables. | `apps/job_store.py`, `conversion_isolation.py`; exportación parcial, trabajo activo, vencimiento y reinicio simulados. El borrado físico se realiza durante el barrido, no al alcanzar la hora exacta de caducidad. |
 | H08 · Privacidad | `Cache-Control: no-store` y protecciones de respuesta para páginas/archivos/errores. Texto de ubicación según modo y fecha UTC real de caducidad. | Pruebas HTTP y Chromium. El TTL no elimina descargas personales, corpus, evidencia externa a `web_ui` ni backups. |
 | H09 · Instalación | Manifiestos del MVP alineados, locks transitivos con hashes, paquete 0.7.0 con subpaquetes/assets y entrypoints, lanzador Windows y perfiles anteriores archivados como legacy. | Wheel instalado en un segundo venv vacío, imports desde site-packages, conversión CLI/HTTP y descargas de los cinco artefactos esperados. Lanzador `-Check` aprobado. |
-| H10 · Entrega | Comando de cierre con resultados de cada paso, cobertura de ramas, build/instalación, inventario, SBOM/auditoría y Chromium declarados. Workflow manual Windows/Linux y Makefile limitados al MVP efectivo. | `scripts/check_release.py`, `package-lock.json`, locks Python y workflow. Cierre local Windows aprobado; no se activaron Actions ni se ejecutó su matriz remota. |
+| H10 · Entrega | Comando de cierre con resultados de cada paso, cobertura de ramas, build/instalación, inventario, SBOM/auditoría y Chromium declarados. Workflow manual exclusivo de Windows y Makefile limitados al MVP web en Windows. | `scripts/check_release.py`, `package-lock.json`, locks Python y workflow. Cierre local Windows aprobado; workflow limitado a windows-latest. No se activaron Actions ni se ejecutó el workflow remoto. |
 | H11 · Coherencia | README, guía del repositorio, configuración, preparación, alcance, avance, seguridad, calidad, operación y ayuda describen el producto efectivo. La ayuda deja de afirmar que los archivos nunca se borran o que un servidor remoto es el equipo del usuario. El dashboard distingue base histórica, actualización parcial, piloto aceptado y Gate abierto; BLK-02 deja de afirmar un solo diseño validado. | Fuentes/seguimiento actualizados; navegador comprueba guardar/cancelar/exportar sin alterar estados oficiales. No se renueva la vigencia de fuentes históricas no revisadas. |
 | H12 · Operación | Números positivos finitos, rango de puerto y concurrencia validados; logs con UUID, duración, resultado/backend y tipos de error sin contenido PDF. Salud indica versión/modo/actividad/backend previsto. | Pruebas de configuración y runbook con recuperación de acceso, timeout, memoria, disco, caducidad y limpieza. No se añaden servicios de telemetría. |
 
@@ -63,17 +63,18 @@ privados aceptados. Las pruebas de cierre usan datos ficticios.
 
 ## Pendientes conservados y siguiente revisión
 
-1. **Antes de afirmar validación Linux:** ejecutar la misma suite y cierre en
-   Linux y revisar su límite POSIX. La matriz manual preparada no constituye
-   evidencia de ejecución.
-2. **Si se actualiza el servicio remoto:** aplicar esta versión y verificar
+La única entrega requerida, por instrucción directa del usuario, es la
+versión web ejecutada en Windows y utilizada desde el navegador. Se retira
+la validación Linux de los pendientes: Linux queda fuera de alcance.
+
+1. **Si se actualiza el servicio remoto:** aplicar esta versión y verificar
    modo remoto, credenciales completas, HTTPS, una réplica/proceso, presupuesto
    y almacenamiento del entorno. Esta entrega no despliega ni certifica ese
    servicio.
-3. **Para Gate F0 general:** ampliar/adjudicar muestra representativa, resolver
+2. **Para Gate F0 general:** ampliar/adjudicar muestra representativa, resolver
    distribución de binarios/avisos y modelo de costo. No reabrir las cinco
    aceptaciones del piloto por estas condiciones de alcance general.
-4. **Datos locales:** revisar por separado acceso/retención del corpus y evidencia
+3. **Datos locales:** revisar por separado acceso/retención del corpus y evidencia
    privada (RSK-05). No se eliminan archivos autorizados del piloto/corpus como
    consecuencia de corregir el TTL del servidor web.
 

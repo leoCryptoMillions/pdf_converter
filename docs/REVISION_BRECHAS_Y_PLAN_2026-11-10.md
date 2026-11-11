@@ -4,6 +4,9 @@ Fecha: 2026-11-10 · Código revisado: `de9c513` · App auditada: 0.6.4.
 
 **Remediación posterior implementada en 0.7.0:** ver [correcciones y evidencia](CORRECCIONES_MVP_0.7.0.md). Este documento conserva el diagnóstico y las mediciones anteriores a los cambios.
 
+**Alcance actualizado por el usuario:** la entrega requerida es únicamente
+web en Windows. Linux queda fuera del plan de entrega y de sus validaciones.
+
 La conversión local tiene una base funcional y un piloto aceptado, pero conserva
 fallos de aislamiento, admisión de archivos y comunicación de advertencias.
 La prioridad es cerrar esos fallos y comprobar una instalación limpia antes de
@@ -158,8 +161,9 @@ Cada paso debe entregar evidencia revisable; las estimaciones no son compromisos
    no se sirven y el barrido inicial funciona, con fallos de borrado observables.
 4. **Memoria:** una carga sintética controlada que intenta superar el presupuesto
    es contenida en Windows; el servidor responde después y la siguiente
-   conversión funciona. Probar también el mecanismo POSIX en Linux antes de
-   afirmar soporte allí. No agotar deliberadamente la memoria real del equipo.
+   conversión funciona. El criterio de entrega corresponde a la versión web en
+   Windows; no se exige validación Linux. No agotar deliberadamente la memoria
+   real del equipo.
 5. **Revisión/privacidad:** celda combinada, multilineal, colisión visual e imagen
    omitida aparecen en los destinos que correspondan, con procedencia y sin
    duplicados. Resultados y descargas emiten `no-store`; el texto de ubicación de

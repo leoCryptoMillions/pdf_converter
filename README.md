@@ -3,6 +3,10 @@
 MVP local para convertir PDFs digitales a **Word y Excel**, con TXT opcional,
 advertencias y descarga desde el navegador. Un usuario y un documento a la vez.
 
+**Plataforma requerida:** únicamente la versión web ejecutada en Windows y
+utilizada desde el navegador. Linux queda fuera del alcance y no requiere
+versión, pruebas ni validación para entregar este producto.
+
 **Versión 0.7.0, 2026-11-10:** piloto de cinco documentos aceptado el 2026-10-28;
 correcciones de acceso, recursos, retención y notas de revisión. El Gate F0
 general sigue pendiente. La plataforma con cuentas, trabajos y
