@@ -2,6 +2,17 @@
 
 Fecha: 2026-10-27. Estado: aceptado para el piloto de un solo usuario.
 
+Actualización 2026-11-10: el diseño inicial descrito abajo es histórico.
+La implementación 0.7.0 exige modo remoto y credenciales completas, aplica
+Job Objects en Windows / RLIMIT_AS en POSIX, supervisa y recibe IPC a la vez,
+mantiene admisión durante cancelación y publica resultados con metadatos de
+caducidad. Se limita carga antes del spool y presupuesto de disco; barrido
+inicial y periódico. Ver [correcciones](../CORRECCIONES_MVP_0.7.0.md) y
+[seguridad efectiva](../SEGURIDAD.md). No se verificó ni actualizó el servicio
+remoto en esta entrega.
+
+## Decisión inicial (2026-10-27)
+
 El MVP local (`apps/local_review_ui.py`) se desplegó en Railway
 (https://mvp-web-production.up.railway.app) sin que existiera ninguna
 decisión documentada previa de exponerlo en red: el único rastro era un

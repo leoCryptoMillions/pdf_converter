@@ -308,10 +308,12 @@ def export_docx(document: DocumentIR, *, include_warnings: bool = False) -> byte
             _add_warning(page, 'DOCX_FONT_SUBSTITUTED',
                          'Standard PDF fonts mapped to Word fonts: ' + ', '.join(substitutions))
     if include_warnings:
+        from packages.document_ir.warnings import collect_warnings
         output.add_page_break()
         output.add_heading('Conversion warnings', level=1)
-        for issue in document.warnings + [w for p in document.pages for w in p.warnings]:
-            output.add_paragraph(f'Page {issue.page_number}: {issue.code} — {issue.message}')
+        for issue in collect_warnings(document):
+            context = f' [{issue.table_id} R{issue.row_index} C{issue.col_index}]' if issue.table_id else ''
+            output.add_paragraph(f'Page {issue.page_number}{context}: {issue.code} — {issue.message}')
     buffer = BytesIO()
     output.save(buffer)
     return buffer.getvalue()

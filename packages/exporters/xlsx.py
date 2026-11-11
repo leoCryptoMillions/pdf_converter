@@ -19,6 +19,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from packages.document_ir.models import DocumentIR, TextRun
+from packages.document_ir.warnings import add_export_warnings, collect_warnings
 
 
 def put_text(cell, value: str) -> None:
@@ -652,11 +653,7 @@ def export_xlsx(document: DocumentIR, *, numeric_columns: dict[str, dict[int, st
             target.alignment = Alignment(wrap_text=True, vertical="top")
             if table.has_header and r < table.header_rows:
                 target.font = Font(bold=True)
-            for issue in source.warnings:
-                issues.append((issue.code, issue.page_number, issue.message))
         ws.freeze_panes = "A2" if table.has_header else None
-        for issue in table.warnings:
-            issues.append((issue.code, issue.page_number, issue.message))
     # Tables only ever cover the ruled grids on a page. Anything else -
     # letterhead, names, totals outside a ruled box, footer notes - lives
     # only in this full-text sheet; without it, a page with any detected
@@ -695,14 +692,15 @@ def export_xlsx(document: DocumentIR, *, numeric_columns: dict[str, dict[int, st
         origin.append([table.id, f"page {table.page_number}; bbox {table.location.model_dump()}"])
         if table.continuation_of:
             origin.append([f"{table.id} continuation candidate", table.continuation_of])
-    for issue in document.warnings + [w for p in document.pages for w in p.warnings]:
-        issues.append((issue.code, issue.page_number, issue.message))
+    add_export_warnings(document, issues, "xlsx")
+    all_issues = collect_warnings(document)
     ws = wb.create_sheet("_Warnings")
-    ws.append(["Code", "Page", "Message"])
-    for code, page, message in issues:
-        ws.append([None, page, None])
-        put_text(ws.cell(ws.max_row, 1), code)
-        put_text(ws.cell(ws.max_row, 3), message)
+    ws.append(["Code", "Page", "Message", "Table", "Row", "Column", "Format"])
+    for issue in all_issues:
+        ws.append([None, issue.page_number, None, None, issue.row_index, issue.col_index, None])
+        for column, value in ((1, issue.code), (3, issue.message),
+                              (4, issue.table_id or ""), (7, issue.output_format or "")):
+            put_text(ws.cell(ws.max_row, column), value)
     result = BytesIO()
     # Metadata in an externally supplied IR is also untrusted text.
     for sheet in wb:

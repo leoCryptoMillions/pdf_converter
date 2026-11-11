@@ -8,7 +8,8 @@ from pathlib import Path
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
-ROOTS = {"prototype": ["pdfplumber", "pydantic", "openpyxl", "python-docx", "reportlab"],
+ROOTS = {"mvp": ["pdfplumber", "pypdfium2", "pydantic", "openpyxl", "python-docx", "fastapi", "uvicorn", "python-multipart"],
+         "prototype": ["pdfplumber", "pydantic", "openpyxl", "python-docx", "reportlab"],
          "benchmark": ["pypdfium2", "pytesseract", "camelot-py", "psutil"]}
 
 
@@ -70,7 +71,11 @@ def inventory(roots: dict[str, list[str]] = ROOTS) -> dict:
 
 
 if __name__ == "__main__":
-    report = inventory()
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--profile", choices=[*ROOTS, "all"], default="mvp")
+    args = parser.parse_args()
+    report = inventory(ROOTS if args.profile == "all" else {args.profile: ROOTS[args.profile]})
     destination = Path(".generated/licenses/inventory.json")
     destination.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({"components": len(report["components"]), "compatibility_findings": report["compatibility_findings"],

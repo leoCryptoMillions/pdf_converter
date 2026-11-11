@@ -1,93 +1,35 @@
-name: Tests and Code Quality
+name: MVP release checks (manual)
 
 on:
-  # Optional checks only. Repository Actions are disabled in GitHub settings.
-  # Re-enable Actions explicitly before running this workflow manually.
+  # Keep the established manual-only policy. This does not enable repository Actions.
   workflow_dispatch:
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  release:
     strategy:
       matrix:
-        python-version: ["3.11"]
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: pdf_converter_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Cache pip packages
-        uses: actions/cache@v3
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpq-dev tesseract-ocr
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-
-      - name: Lint with flake8
-        run: |
-          flake8 apps/ packages/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 apps/ packages/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
-
-      - name: Type check with mypy
-        run: |
-          mypy apps/ packages/ --ignore-missing-imports || true
-
-      - name: Format check with black
-        run: |
-          black --check apps/ packages/ tests/ || true
-
-      - name: Run pytest tests
-        env:
-          DATABASE_URL: "postgresql://postgres:password@localhost:5432/pdf_converter_test"
-          REDIS_URL: "redis://localhost:6379/0"
-        run: |
-          pytest tests/ -v -m "mvp or not mvp" --cov=apps --cov=packages --cov-report=xml --cov-branch --cov-fail-under=70
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: python -m pip install --require-hashes -r requirements-mvp-dev.lock
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Complete regression, coverage, wheel, inventory, browser and vulnerability audit
+        run: python -m scripts.check_release --audit
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
+          name: mvp-checks-${{ matrix.os }}
+          path: |
+            .generated/release-check/
+            .generated/ui-check/
+            .generated/docx-review/

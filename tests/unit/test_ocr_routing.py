@@ -45,8 +45,15 @@ def test_continuous_text_page_routes_on_confidence_floor():
     assert high_warning.code == "OCR_APPLIED"
 
 
-def test_ocr_disabled_by_default_keeps_existing_behavior():
-    document = extract_digital(CORPUS_SAMPLE, page_numbers=[1])
+def test_ocr_disabled_by_default_keeps_existing_behavior(tmp_path):
+    from PIL import Image
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas
+    source = tmp_path / "synthetic-scan.pdf"
+    pdf = canvas.Canvas(str(source))
+    pdf.drawImage(ImageReader(Image.new("RGB", (100, 100), "navy")), 50, 500, 100, 100)
+    pdf.save()
+    document = extract_digital(source, page_numbers=[1])
     page = document.pages[0]
     assert page.extracted_text == ""
     assert any(w.code == "OCR_REQUIRED" for w in page.warnings)

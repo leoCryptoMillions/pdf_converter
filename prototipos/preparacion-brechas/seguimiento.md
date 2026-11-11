@@ -388,6 +388,38 @@ exportación ya existente; no es una validación de calidad representativa
 nueva ni una aprobación de Gate F0. `verification_coverage` **18% (2/11)** y
 `decision_coverage` **27% (3/11)**, sin cambios.
 
+## Auditoría del MVP y plan de remediación (2026-11-10)
+
+| Fecha | Tarea/avance | Áreas | Actualización o motivo de no impacto | Fuentes/evidencia | Verificaciones | Decisión pendiente |
+|---|---|---|---|---|---|---|
+| 2026-11-10 | Revisión del código `de9c513` y plan H01–H12 | F0-03, F0-04, F0-06, F0-07, F0-08, F0-09, F0-10, F0-11 | Sin impacto en el cierre de las brechas: se identifican fallos adicionales del MVP y se prioriza su remediación, sin resolverlos ni modificar decisiones de las 11 fichas. Se preserva la aceptación previa de los cinco documentos del piloto. La conciliación integral de fichas, bloqueos y snapshot histórico queda pendiente, recogida en H11. | `docs/REVISION_BRECHAS_Y_PLAN_2026-11-10.md`, `docs/AVANCE.md`; nueva fuente SRC-35. Evidencia sintética local en `.generated/auditoria-20261110/`. | Suite completa: 118 aprobadas, 1 omitida POSIX en Windows; recolección diaria 66/119. Reproducciones de autenticación parcial/Unicode, bloqueo IPC, límite posterior al parseo, persistencia al rechazar ocupado, cancelación, advertencias de celda y descarga vencida sin política de caché. Cinco decisiones privadas del piloto en `accepted`. | Ejecutar paquetes del plan; no se declara ningún H01–H12 corregido ni Gate F0 aprobado. |
+
+Indicadores recalculados sobre los estados existentes de `index.html`:
+`verification_coverage` **18% (2/11)** y `decision_coverage` **27% (3/11)**.
+No son cobertura de tests ni avance de este plan. No se cambian los datos ni la
+presentación de `index.html`; no se renueva su snapshot global de octubre. La
+nueva fuente acredita esta auditoría, no la vigencia integral del tablero. Esta
+entrada satisface el registro de seguimiento de `docs/mantenimiento-dashboard.md`
+y conserva la congelación de cambios cosméticos del alcance activo.
+
+## Correcciones del MVP 0.7.0 — 2026-11-10
+
+| Fecha | Tarea/avance | Áreas | Fuentes/evidencia | Verificaciones | Decisión pendiente |
+|---|---|---|---|---|---|
+| 2026-11-10 | Implementar los siete paquetes H01–H12 y conciliar producto/documentación | F0-03, F0-04, F0-06, F0-07, F0-08, F0-09, F0-10, F0-11; BLK-02 y RSK-05 | `docs/CORRECCIONES_MVP_0.7.0.md` (SRC-36), código MVP, locks, scripts y guías; `.generated/release-check/report.json`, `coverage.json`, `sbom.json`, wheel instalado y reportes Chromium. | Cierre completo con auditoría aprobado: 144 tests, 1 omisión OCR opcional, cobertura de ramas 75.24%; instalación runtime vacía y edición/reapertura con bibliotecas Office; inventario 26 componentes/26 avisos; cero vulnerabilidades conocidas. Navegador: UI y dashboard (detalle, cancelar/guardar/exportar, sin errores); lanzador Windows -Check correcto. | Piloto de cinco documentos aceptado se conserva. Gate F0, muestra representativa y distribución/costos pendientes; Linux no ejecutado, servicio remoto no actualizado. Actions sigue manual. |
+
+`index.html` distingue ahora la base histórica del 2026-10-20 de la actualización
+parcial del 2026-11-10. Se corrige BLK-02 (ya no afirma un solo diseño probado),
+se registra la aceptación acotada del piloto y el endurecimiento del wrapper,
+se precisa el inventario efectivo y el workflow manual disponible. También se corrige la ayuda compartida: ubicación local/remota y borrado automático; la guía raíz distingue el MVP de la arquitectura futura. Las fichas
+conservan sus estados: la corrección técnica del MVP no aprueba automáticamente
+sus once áreas generales. La retención del corpus sigue separada del TTL web.
+
+Fuentes no revisadas conservan su fecha o `pending_reconciliation`; no se
+renueva el snapshot global ni se inventan hashes/certificaciones. La prueba
+Chromium final se ejecutó con estos datos. Indicadores conservados:
+`verification_coverage` **18% (2/11)** y `decision_coverage` **27% (3/11)**.
+
 ## Próxima actualización esperada
 
 Disparador según `docs/mantenimiento-dashboard.md`: antes de cerrar

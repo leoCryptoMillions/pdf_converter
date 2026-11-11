@@ -240,8 +240,9 @@ def test_convert_busy_response_when_a_conversion_is_already_running():
             "/convert", files={"file": ("sample.pdf", b"%PDF-", "application/pdf")},
             data={"formats": ["txt"]},
         )
-        assert response.status_code == 400
+        assert response.status_code == 409
         assert "Ya hay una conversión en curso" in response.text
+        assert not list(local_review_ui.OUTPUT_ROOT.glob("*/source.pdf"))
     finally:
         local_review_ui._convert_semaphore.release()
 

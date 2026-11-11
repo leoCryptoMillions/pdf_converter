@@ -1,11 +1,18 @@
 # Prototipo local de viabilidad
 
-**Prioridad desde 2026-10-27:** cerrar el piloto local digital de Word y
-Excel con la interfaz existente. El arranque mínimo usa
-`requirements-mvp.txt`; los criterios y la selección de pruebas al 50% están
-en [ALCANCE.md](ALCANCE.md) y [README.md](../README.md). El flujo local ya
-permite cargar y descargar; cuentas, trabajos y cola siguen pospuestos.
-El historial técnico siguiente conserva las fechas y límites de F0.
+**Estado activo 2026-11-10:** MVP 0.7.0 digital de un usuario, piloto de cinco
+documentos aceptado el 2026-10-28 y Gate F0 general pendiente. Arranque:
+`iniciar.cmd` o `python -m apps.local_review_ui` con el runtime instalado desde
+`requirements-mvp.lock` y hashes. Ver [README.md](../README.md),
+[configuración](../CONFIG_GUIDE.md) y [correcciones](CORRECCIONES_MVP_0.7.0.md).
+
+Las carpetas del servidor web tienen metadatos de caducidad, barrido inicial y
+periódico, y descargas vencidas bloqueadas. Las salidas independientes del CLI,
+el corpus y la evidencia histórica en `.generated/` no están sujetos a ese TTL.
+El historial siguiente registra cómo funcionaban las versiones anteriores;
+sus límites/instalación no sustituyen las instrucciones actuales.
+
+## Historial del prototipo
 
 Estado al 2026-10-08: extracción digital con pdfplumber, modelo intermedio
 con procedencia, exportación XLSX/DOCX/TXT y validación de una muestra.

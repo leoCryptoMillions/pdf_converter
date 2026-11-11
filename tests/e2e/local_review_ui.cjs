@@ -5,7 +5,7 @@ const path = require('node:path');
 const { chromium } = require(process.env.PDF_UI_PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.PDF_UI_URL || 'http://127.0.0.1:8421';
 const artifacts = path.resolve('.generated/ui-check');
-const sample = path.resolve('benchmarks/corpus/files/synthetic_base_invoice.pdf');
+const sample = path.resolve(process.env.PDF_UI_SAMPLE || '.generated/release-check/synthetic.pdf');
 const key = 'pdf-converter:theme';
 
 async function expectTheme(page, theme) {
@@ -169,7 +169,8 @@ async function main() {
       await page.waitForURL('**/convert');
       await expectTheme(page, theme);
       assert.deepEqual(await page.evaluate(() => JSON.parse(sessionStorage.getItem('feedback'))), {progress:true,disabled:true});
-      assert.equal(await page.locator('.download-card').count(), 3);
+      assert.equal(await page.locator('.download-card').count(), 3,
+        await page.locator('.error-banner').allTextContents());
       await checkContextHelp(page);
       assert((await page.locator('.text-preview').textContent()).trim());
       const [download] = await Promise.all([

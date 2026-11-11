@@ -164,7 +164,7 @@ def prepare(output: Path, file_ids: list[str]) -> dict:
                         if download.status_code != 200:
                             raise ValueError(f"Download HTTP {download.status_code}")
                         artifacts[link.rsplit("/", 1)[1]] = download.content
-                    expected = {"result.docx", "result.xlsx", "result.txt", "document.ir.json"}
+                    expected = {"result.docx", "result.xlsx", "result.txt", "document.ir.json", "warnings.json"}
                     if set(artifacts) != expected:
                         raise ValueError("Incomplete downloads")
                     ir = DocumentIR.model_validate_json(artifacts["document.ir.json"])

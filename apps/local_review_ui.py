@@ -19,22 +19,31 @@ from __future__ import annotations
 import asyncio
 import functools
 import html
+import logging
 import os
 import re
 import secrets
-import uuid
+import threading
+import time
 from contextlib import asynccontextmanager
+from contextlib import suppress
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.status import HTTP_400_BAD_REQUEST
 
 from apps.conversion_isolation import (
-    CLEANUP_INTERVAL_SECONDS, RETENTION_HOURS, cleanup_loop, run_isolated,
+    CLEANUP_INTERVAL_SECONDS, RETENTION_HOURS, ConversionSummary, cleanup_loop, prune_old_jobs, run_isolated,
 )
+from apps.job_store import create_job, publish_job, read_metadata, remove_job
 from apps.local_review_help import contextual_templates, help_link, render_help
+from apps.request_guard import BoundedMultipartParser, MultiPartException, RequestGuard, RequestTooLarge, UploadFile
+from apps.runtime_config import settings
+
+logger = logging.getLogger("pdf_converter.web")
 
 OUTPUT_ROOT = Path(".generated/web_ui")
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # Matches extract_digital's own default limit.
@@ -44,9 +53,9 @@ ASSET_ROOT = Path(__file__).with_name("local_review_assets")
 # Bump on every user-visible feature/fix so whoever opens the app can tell
 # which build they're reviewing without checking git log. Keep the note to
 # one short line describing what's new in THIS build, not a full changelog.
-APP_VERSION = "0.6.4"
-APP_VERSION_DATE = "2026-10-28"
-APP_VERSION_NOTE = "Excel recupera fondos de paneles para mantener legible el texto blanco del PDF"
+APP_VERSION = "0.7.0"
+APP_VERSION_DATE = "2026-11-10"
+APP_VERSION_NOTE = "Límites de carga, memoria y acceso verificados; notas de revisión completas"
 FORMAT_INFO = {
     "xlsx": ("Excel", "Tablas y celdas"),
     "docx": ("Word", "Diseño e imágenes"),
@@ -55,12 +64,21 @@ FORMAT_INFO = {
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(prune_old_jobs, OUTPUT_ROOT, RETENTION_HOURS)
     cleanup_task = asyncio.create_task(
         cleanup_loop(OUTPUT_ROOT, RETENTION_HOURS, CLEANUP_INTERVAL_SECONDS))
     try:
         yield
     finally:
+        tasks = list(_active_conversions.items())
+        for task, cancel in tasks:
+            cancel.set()
+        if tasks:
+            await asyncio.gather(*(task for task, _ in tasks), return_exceptions=True)
         cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
 
 
 app = FastAPI(title="PDF Converter - F0 local review UI", docs_url=None, redoc_url=None,
@@ -70,24 +88,30 @@ app.mount("/assets", StaticFiles(directory=ASSET_ROOT), name="assets")
 # Optional HTTP Basic Auth gate. Unset in local dev (README flow unchanged);
 # set both AUTH_USERNAME and AUTH_PASSWORD when running on a reachable host
 # (e.g. Railway) since this prototype has no accounts of its own.
-AUTH_USERNAME = os.environ.get("AUTH_USERNAME")
-AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD")
+AUTH_USERNAME = settings.username
+AUTH_PASSWORD = settings.password
 
 
 def _authorized(request: Request) -> bool:
+    if not AUTH_USERNAME and not AUTH_PASSWORD:
+        return settings.mode == "local"
     if not AUTH_USERNAME or not AUTH_PASSWORD:
-        return True
+        return False
     header = request.headers.get("authorization", "")
     if not header.startswith("Basic "):
         return False
     import base64
 
     try:
-        decoded = base64.b64decode(header[6:]).decode("utf-8")
-        user, _, pwd = decoded.partition(":")
+        decoded = base64.b64decode(header[6:], validate=True).decode("utf-8")
+        user, separator, pwd = decoded.partition(":")
+        if not separator:
+            return False
     except Exception:
         return False
-    return secrets.compare_digest(user, AUTH_USERNAME) and secrets.compare_digest(pwd, AUTH_PASSWORD)
+    user_ok = secrets.compare_digest(user.encode("utf-8"), AUTH_USERNAME.encode("utf-8"))
+    password_ok = secrets.compare_digest(pwd.encode("utf-8"), AUTH_PASSWORD.encode("utf-8"))
+    return user_ok and password_ok
 
 
 # One conversion at a time, matching the product's own stated model ("Un
@@ -97,24 +121,14 @@ def _authorized(request: Request) -> bool:
 # subprocess, multiplying memory use. Checking .locked() then entering
 # `async with` with no `await` in between is race-free on the single-threaded
 # event loop - don't insert an `await` between the two.
-CONVERT_CONCURRENCY = int(os.environ.get("CONVERT_CONCURRENCY", "1"))
-_convert_semaphore = asyncio.Semaphore(CONVERT_CONCURRENCY)
+CONVERT_CONCURRENCY = 1
+_convert_semaphore = asyncio.Semaphore(1)
+_active_conversions: dict[asyncio.Task, threading.Event] = {}
 
 
-@app.middleware("http")
-async def local_response_headers(request: Request, call_next):
-    if not _authorized(request):
-        return Response(status_code=401, headers={"WWW-Authenticate": "Basic realm=\"PDF Converter\""})
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; style-src 'self'; "
-        "img-src 'self' data:; object-src 'none'; base-uri 'none'; "
-        "form-action 'self'; frame-ancestors 'none'"
-    )
-    return response
+app.add_middleware(RequestGuard, root=lambda: OUTPUT_ROOT, semaphore=lambda: _convert_semaphore,
+                   authorized=_authorized, render_error=lambda message: render_form(message),
+                   max_upload=lambda: MAX_UPLOAD_BYTES)
 
 
 PAGE_SHELL = ((ASSET_ROOT / "shell.html").read_text(encoding="utf-8")
@@ -147,12 +161,13 @@ def icon(name: str) -> str:
 LOCAL_NOTE = f"""
 <section class="note-card" aria-labelledby="local-title">
   {icon('shield')}
-  <h2 id="local-title">Se queda en tu equipo</h2>
-  <p>La conversión se ejecuta en este servidor local, sin enviar tu PDF a un servicio externo.</p>
+  <h2 id="local-title">{'Se queda en tu equipo' if settings.mode == 'local' else 'Tus archivos se guardan en este servidor'}</h2>
+  <p>{'La conversión se ejecuta en tu equipo.' if settings.mode == 'local' else 'Tu PDF se carga y convierte en el servidor al que te conectaste.'}
+  No se envía a servicios externos de conversión.</p>
   <details><summary>Sobre este prototipo</summary>
-    <p>Uso local, un documento a la vez. Los archivos se guardan en
-    <code>.generated/web_ui/</code> y se eliminan automáticamente pasadas
-    {int(RETENTION_HOURS)} horas.</p>
+    <p>Un documento a la vez. Las descargas caducan {RETENTION_HOURS:g} horas
+    después de la carga; el servidor elimina los archivos en el siguiente barrido.
+    Las copias que descargues se conservan hasta que las elimines.</p>
     <p>Los resultados requieren revisión frente al PDF original.</p>
   </details>
 </section>"""
@@ -272,21 +287,83 @@ def help_center(q: str = "") -> str:
     return PAGE_SHELL.format(body=render_help(q), title="Ayuda y preguntas frecuentes · PDF Converter")
 
 
+@app.get("/health")
+def health():
+    return {"status": "ready", "version": APP_VERSION, "mode": settings.mode,
+            "conversion_active": _convert_semaphore.locked(),
+            "memory_backend": "windows_job_object" if os.name == "nt" else "rlimit_as"}
+
+
 @app.post("/convert", response_class=HTMLResponse)
-async def convert(
+async def convert(request: Request) -> HTMLResponse:
+    if not request.headers.get("content-type", "").lower().startswith("multipart/form-data"):
+        return HTMLResponse(render_form("Sube el PDF con el formulario de conversión."), status_code=400)
+    parser = BoundedMultipartParser(request.headers, request.stream(), MAX_UPLOAD_BYTES)
+    try:
+        form = await parser.parse()
+    except RequestTooLarge:
+        return HTMLResponse(render_form("El archivo excede el límite de 25 MB."), status_code=413)
+    except (MultiPartException, ValueError):
+        return HTMLResponse(render_form("El formulario no es válido: carga un PDF y revisa las opciones."), status_code=400)
+    try:
+        files = form.getlist("file")
+        allowed = {"file", "formats", "pages", "ocr", "docx_warnings"}
+        if (len(files) != 1 or not isinstance(files[0], UploadFile) or
+                any(key not in allowed for key in form) or
+                any(not isinstance(value, str) for key, value in form.multi_items() if key != "file") or
+                any(len(form.getlist(key)) > 1 for key in ("pages", "ocr", "docx_warnings"))):
+            return HTMLResponse(render_form("Carga un único PDF y revisa las opciones."), status_code=400)
+        return await _convert_document(files[0], formats=form.getlist("formats"),
+            pages=form.get("pages", ""), ocr=form.get("ocr", ""),
+            docx_warnings=form.get("docx_warnings", ""), admission=request.state.conversion_admission)
+    finally:
+        await form.close()
+
+
+def _execute_job(job_dir, job_lease, source_path, cancel, **options):
+    summary = ConversionSummary(ok=False, error_kind="crash")
+    try:
+        summary = run_isolated(job_dir, source_path, cancel_event=cancel, **options)
+        if cancel.is_set():
+            summary = ConversionSummary(ok=False, error_kind="cancelled")
+        if summary.ok:
+            publish_job(job_dir)
+    except OSError as exc:
+        logger.warning("job_storage_failed job_id=%s error_type=%s", job_dir.name, type(exc).__name__)
+        summary = ConversionSummary(ok=False, error_kind="storage")
+    except Exception as exc:
+        logger.error("job_failed job_id=%s error_type=%s", job_dir.name, type(exc).__name__)
+        summary = ConversionSummary(ok=False, error_kind="crash")
+    finally:
+        job_lease.close()
+        if not summary.ok:
+            remove_job(OUTPUT_ROOT, job_dir)
+    return summary
+
+
+async def _supervise_job(job_dir, job_lease, source_path, cancel, **options):
+    future = asyncio.get_running_loop().run_in_executor(None, functools.partial(
+        _execute_job, job_dir, job_lease, source_path, cancel, **options))
+    try:
+        return await asyncio.shield(future)
+    except asyncio.CancelledError:
+        cancel.set()
+        # Executor threads cannot be cancelled. Keep ownership until the child exits.
+        await asyncio.shield(future)
+        raise
+
+
+async def _convert_document(
     file: UploadFile,
-    formats: list[str] = Form(default=[]),
-    pages: str = Form(default=""),
-    ocr: str = Form(default=""),
-    docx_warnings: str = Form(default=""),
+    *, formats: list[str], pages: str, ocr: str, docx_warnings: str, admission,
 ) -> HTMLResponse:
     selected_formats = {f for f in formats if f in ALLOWED_FORMATS}
 
-    def failure(message: str) -> HTMLResponse:
+    def failure(message: str, status_code: int = HTTP_400_BAD_REQUEST) -> HTMLResponse:
         return HTMLResponse(
             render_form(message, selected_formats=selected_formats, pages=pages, ocr=bool(ocr),
                         docx_warnings=bool(docx_warnings)),
-            status_code=HTTP_400_BAD_REQUEST,
+            status_code=status_code,
         )
 
     if not selected_formats:
@@ -305,27 +382,35 @@ async def convert(
 
     body = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(body) > MAX_UPLOAD_BYTES:
-        return failure("El archivo excede el límite de 25 MB. Elige un PDF más pequeño.")
+        return failure("El archivo excede el límite de 25 MB. Elige un PDF más pequeño.", 413)
 
-    job_id = uuid.uuid4().hex
-    job_dir = OUTPUT_ROOT / job_id
-    job_dir.mkdir(parents=True, exist_ok=False)
-    # Server-generated name only; the original filename is never used for I/O.
-    source_path = job_dir / "source.pdf"
-    source_path.write_bytes(body)
+    job_dir = None
+    job_lease = None
+    try:
+        job_dir, job_lease = create_job(OUTPUT_ROOT, RETENTION_HOURS)
+        source_path = job_dir / "source.pdf"
+        source_path.write_bytes(body)
+    except OSError:
+        if job_lease:
+            job_lease.close()
+        if job_dir:
+            remove_job(OUTPUT_ROOT, job_dir)
+        return failure("No se pudo guardar el PDF. Comprueba el espacio disponible.", 503)
 
-    # No `await` between this check and entering the `async with` below: on
-    # the single-threaded event loop that makes the check-then-acquire
-    # atomic, so a second concurrent request reliably gets the friendly
-    # "busy" response instead of silently queuing behind the first.
-    if _convert_semaphore.locked():
-        return failure("Ya hay una conversión en curso. Este prototipo procesa un documento "
-                        "a la vez: inténtalo de nuevo en unos segundos.")
-    async with _convert_semaphore:
-        loop = asyncio.get_running_loop()
-        summary = await loop.run_in_executor(None, functools.partial(
-            run_isolated, job_dir, source_path, page_numbers=page_numbers, ocr=bool(ocr),
-            selected_formats=frozenset(selected_formats), docx_warnings=bool(docx_warnings)))
+    cancel = threading.Event()
+    task = asyncio.create_task(_supervise_job(job_dir, job_lease, source_path, cancel,
+        page_numbers=page_numbers, ocr=bool(ocr), selected_formats=frozenset(selected_formats),
+        docx_warnings=bool(docx_warnings)))
+    admission.task = task
+    _active_conversions[task] = cancel
+    task.add_done_callback(lambda completed: _active_conversions.pop(completed, None))
+    try:
+        summary = await asyncio.shield(task)
+    except asyncio.CancelledError:
+        cancel.set()
+        raise
+    job_id = job_dir.name
+    artifact_dir = job_dir / "artifacts"
 
     if not summary.ok:
         if summary.error_kind == "validation":
@@ -346,6 +431,10 @@ async def convert(
         if summary.error_kind == "memory":
             return failure("El PDF requiere más memoria de la disponible para procesarse. "
                             "Prueba con menos páginas.")
+        if summary.error_kind == "isolation":
+            return failure("No se pudo activar el límite de memoria. Revisa la instalación antes de convertir.", 503)
+        if summary.error_kind == "storage":
+            return failure("No hay espacio suficiente para guardar los resultados. Inténtalo más tarde.", 503)
         return failure("Ocurrió un error inesperado al convertir el archivo. Inténtalo de nuevo.")
 
     warnings = summary.warnings
@@ -365,7 +454,10 @@ async def convert(
         "EMPTY_PAGE": "Esta página no contiene texto ni elementos gráficos detectados.",
     }
     warning_items = "".join(
-        f'<li><span class="warning-page">Página {w["page_number"]}</span>'
+        f'<li><span class="warning-page">Página {w["page_number"]}'
+        f'{html.escape(" · " + w["table_id"]) if w.get("table_id") else ""}'
+        f'{" · fila " + str(w["row_index"] + 1) if w.get("row_index") is not None else ""}'
+        f'{" · columna " + str(w["col_index"] + 1) if w.get("col_index") is not None else ""}</span>'
         f'<p>{html.escape(friendly_warnings.get(w["code"], w["message"]))}</p>'
         f'<details><summary>Detalle técnico</summary><div class="technical-detail">'
         f'<code>{html.escape(w["code"])}</code> · {html.escape(w["message"])}</div></details></li>'
@@ -375,7 +467,7 @@ async def convert(
         f'<div class="action-with-help download-row"><a class="download-card" href="/download/{job_id}/result.{ext}" aria-label="Descargar {info[0]}" data-help-action="{ext}" download>'
         f'<span class="file-symbol" aria-hidden="true">{ext.upper()}</span>'
         f'<span class="file-info"><strong>Descargar {info[0]}</strong>'
-        f'<span class="hint">.{ext} · {(job_dir / f"result.{ext}").stat().st_size / 1024:.1f} KB</span></span>'
+        f'<span class="hint">.{ext} · {(artifact_dir / f"result.{ext}").stat().st_size / 1024:.1f} KB</span></span>'
         f'{icon("download")}</a>{help_link(ext)}</div>'
         for ext, info in FORMAT_INFO.items() if ext in selected_formats
     )
@@ -383,6 +475,11 @@ async def convert(
                if summary.text_preview.strip() else '<p class="hint">No se extrajo texto. Si el PDF es un escaneo, vuelve a convertir con OCR activado.</p>')
     preview_note = ('<p class="hint field-hint">Vista limitada a 6 000 caracteres. Consulta el texto completo en los archivos de salida.</p>'
                      if summary.text_truncated else '')
+    expires = datetime.fromtimestamp(read_metadata(job_dir)["expires_at"], timezone.utc)
+    expiry_label = expires.strftime("%Y-%m-%d %H:%M UTC")
+    warning_total = summary.warning_count or len(warnings)
+    warning_limit_note = (f'<p>Mostramos las primeras {len(warnings)} notas; el informe descargable contiene las {warning_total}.</p>'
+                          if warning_total > len(warnings) else '')
     body_html = f"""
 <div class="result-heading">
   <div class="intro"><p class="eyebrow">CONVERSIÓN COMPLETADA</p>
@@ -399,10 +496,12 @@ async def convert(
 <div class="workspace">
   <div class="result-stack">
     <section class="panel result-section"><h2>Descarga tus archivos</h2><p class="hint">Elige un formato para guardarlo en tu equipo.</p>
+      <p class="hint">Descargas disponibles hasta <time datetime="{expires.isoformat()}">{expiry_label}</time>.</p>
       <div class="download-list">{downloads}</div></section>
     <section class="panel result-section"><h2>Vista del texto extraído</h2><p class="hint">Una primera mirada al contenido, sin formato.</p>
       {preview}{preview_note}</section>
-    <section class="panel result-section"><h2>Notas para tu revisión ({len(warnings)})</h2>
+    <section class="panel result-section"><h2>Notas para tu revisión ({warning_total})</h2>
+      {warning_limit_note}<p><a href="/download/{job_id}/warnings.json" download>Descargar todas las notas de revisión</a></p>
       <ul class="warnings-list">{warning_items}</ul></section>
   </div>
   <aside class="sidebar" aria-label="Ayuda para revisar">
@@ -420,12 +519,19 @@ async def convert(
 
 @app.get("/download/{job_id}/{filename}")
 def download(job_id: str, filename: str) -> FileResponse:
+    if not re.fullmatch(r"[a-f0-9]{32}", job_id):
+        raise HTTPException(status_code=404, detail="Not found")
     job_dir = (OUTPUT_ROOT / job_id).resolve()
     if not job_dir.is_relative_to(OUTPUT_ROOT.resolve()):
         raise HTTPException(status_code=404, detail="Not found")
-    target = (job_dir / filename).resolve()
+    metadata = read_metadata(job_dir)
+    if metadata is None or metadata.get("state") != "complete":
+        raise HTTPException(status_code=404, detail="Not found")
+    if metadata["expires_at"] <= time.time():
+        raise HTTPException(status_code=410, detail="Las descargas han caducado.")
+    target = (job_dir / "artifacts" / filename).resolve()
     if not target.is_file() or not target.is_relative_to(job_dir) or filename not in {
-        "result.xlsx", "result.docx", "result.txt", "document.ir.json",
+        "result.xlsx", "result.docx", "result.txt", "document.ir.json", "warnings.json",
     }:
         raise HTTPException(status_code=404, detail="Not found")
     return FileResponse(target, filename=filename)
@@ -435,8 +541,8 @@ def main() -> None:
     import uvicorn
 
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    host = os.environ.get("HOST", "127.0.0.1")
-    port = int(os.environ.get("PORT", "8420"))
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    host, port = settings.host, settings.port
     print(f"PDF Converter (F0 local review UI) - abre http://{host}:{port}/")
     uvicorn.run(app, host=host, port=port)
 

@@ -57,7 +57,10 @@ _POPPLER_GLOB_CANDIDATES = [
 def _configure_windows_binaries() -> str | None:
     """Return a poppler bin dir to pass to pdf2image, and point pytesseract at
     tesseract.exe, if found in a known winget install location."""
-    import pytesseract
+    try:
+        import pytesseract
+    except ImportError:
+        return None  # Metrics/reference validation does not require the optional OCR engine.
 
     for candidate in _TESSERACT_CANDIDATES:
         if Path(candidate).exists():

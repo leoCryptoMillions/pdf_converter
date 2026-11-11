@@ -108,6 +108,10 @@ class ContentWarning(BaseModel):
     page_number: int = Field(..., description="Page where issue occurred")
     location: Optional[Rectangle] = Field(None, description="Location on page")
     confidence: Optional[float] = Field(None, description="Confidence 0-1 if applicable")
+    table_id: Optional[str] = None
+    row_index: Optional[int] = None
+    col_index: Optional[int] = None
+    output_format: Optional[str] = None
 
     class Config:
         json_schema_extra = {
@@ -362,7 +366,7 @@ class DocumentIR(BaseModel):
     """
 
     # Schema versioning
-    schema_version: str = Field(default="1.2.0", description="IR schema version")
+    schema_version: str = Field(default="1.3.0", description="IR schema version")
 
     # Document identification
     document_id: str = Field(..., description="Unique document identifier")

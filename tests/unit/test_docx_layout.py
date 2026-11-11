@@ -232,10 +232,8 @@ def test_legacy_ir_without_layout_fields_can_still_export(layout_pdf):
                     cell.pop(key)
     restored = DocumentIR.model_validate(legacy)
     assert restored.schema_version == '1.0.0'
-    # Bumped to 1.2.0 for the additive Cell/TextBlock.fill_color field (highlight
-    # bands); this assertion intentionally pins the current default so a future
-    # unintentional bump is caught here too.
-    assert DocumentIR.model_fields['schema_version'].default == '1.2.0'
+    # 1.3.0 adds optional provenance to warnings; older IR remains importable.
+    assert DocumentIR.model_fields['schema_version'].default == '1.3.0'
     assert 'Normal words with spaces' in '\n'.join(p.text for p in Document(BytesIO(export_docx(restored))).paragraphs)
 
 

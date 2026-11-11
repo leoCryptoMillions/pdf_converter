@@ -1,7 +1,7 @@
 # Progreso del Proyecto - PDF Converter
 
 Versión del Plan: 1.2.0
-Fecha de Actualización: 2026-10-28
+Fecha de Actualización: 2026-11-10
 Estado Actual: **Piloto local Word/Excel aceptado por el usuario; Gate F0 pendiente**
 
 **Cierre de revisión del piloto (2026-10-28):** el usuario revisó y aceptó
@@ -11,7 +11,56 @@ el informe técnico y el comparativo local reflejan el cierre. Se acepta el
 resultado del piloto para continuar el MVP. Esto no equivale a aprobar el
 Gate F0 ni certifica fidelidad exacta para otros PDFs.
 
-Siguiente paso recomendado para terminar el MVP local: preparar un lanzador
+## Correcciones implementadas — MVP 0.7.0, 2026-11-10
+
+Se implementaron los siete paquetes del plan H01–H12: acceso con configuración
+validada, recepción y admisión limitadas, supervisor IPC/cancelación, memoria
+efectiva Windows, advertencias con procedencia, publicación/retención y entrega
+reproducible. El [informe de correcciones](CORRECCIONES_MVP_0.7.0.md) registra
+cada hallazgo, sus pruebas y los límites pendientes.
+
+El cierre `python -m scripts.check_release --audit` pasó en un entorno limpio
+Python 3.13.1/Windows: **144 aprobadas, 1 omitida de OCR opcional y 75.24% de
+cobertura de ramas** (mínimo 70%). Wheel instalado en otro venv vacío fuera
+del árbol fuente, conversión/descargas/edición y reapertura con bibliotecas
+Office, Chromium y dashboard aprobados. Inventario: 26 componentes/26 avisos;
+auditoría del runtime sin vulnerabilidades conocidas y SBOM generado.
+
+Arranque Windows: `iniciar.cmd`; verificación sin servir: `iniciar.cmd -Check`.
+Guías y dashboard conciliados para el alcance del MVP. Se mantiene el workflow
+manual, sin activar Actions. No se inspeccionó ni actualizó el servicio remoto;
+la ejecución Linux queda pendiente antes de afirmar validación allí.
+
+La aceptación de los cinco documentos del piloto sigue vigente. Corpus amplio,
+adjudicación representativa, revisión de distribución/costos y Gate F0 continúan
+pendientes. Los porcentajes 18%/27% del tablero se conservan; son métricas de sus
+once áreas, no de estos tests ni de las correcciones.
+
+## Revisión previa de brechas y plan — 2026-11-10
+
+Se revisó el código `de9c513` y se generó el
+[plan de remediación priorizado](REVISION_BRECHAS_Y_PLAN_2026-11-10.md).
+La suite completa produjo **118 aprobadas y 1 omitida** en Windows; la selección
+diaria actual recoge 66/119 casos. Se verificó que las cinco decisiones del CSV
+final del piloto siguen en `accepted`, sin volver a evaluar su apariencia.
+
+Las reproducciones con datos ficticios confirmaron acceso sin credenciales ante
+configuración parcial de Basic Auth, timeout falso al enviar un resumen grande
+por IPC, límites de carga posteriores al parseo, archivos retenidos al rechazar
+por ocupación, liberación prematura del semáforo al cancelar y advertencias de
+celda ausentes del resumen web. El informe distingue esos fallos de las brechas
+de instalación, operación y trabajo futuro de plataforma. No se corrigió código
+de producto ni se inspeccionó la configuración del despliegue remoto.
+
+Siguiente paso recomendado en esa revisión, ya implementado en 0.7.0: ejecutar los paquetes 1–3 del plan (acceso,
+supervisor y admisión/almacenamiento), continuando con memoria efectiva en
+Windows, advertencias y entrega reproducible. Se preservan la aceptación del
+piloto y el Gate F0 pendiente. Seguimiento y fuentes registran esta auditoría
+sin cambiar las decisiones de las 11 áreas del tablero histórico.
+
+### Recomendación anterior — 2026-10-28
+
+Siguiente paso recomendado entonces para terminar el MVP local: preparar un lanzador
 sencillo de Windows y hacer una pasada de instalación/arranque desde cero,
 manteniendo el alcance actual de PDF digital, Word/Excel/TXT y la prueba diaria
 reducida por riesgo. OCR, cuentas, infraestructura y formatos nuevos siguen

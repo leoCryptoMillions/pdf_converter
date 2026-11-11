@@ -1,6 +1,27 @@
 ﻿# Licencias y dependencias: evidencia F0
 
-Actualizado: 2026-10-08. Estado: inventario técnico generado; revisión de distribución y cumplimiento pendiente. Este documento reemplaza las afirmaciones anteriores de cumplimiento completo, que no estaban verificadas.
+## Inventario activo del MVP — 2026-11-10
+
+`python -m benchmarks.dependency_inventory --profile mvp` encontró **26
+componentes y 26 archivos de avisos**, sin incompatibilidades declaradas en el
+entorno limpio Python 3.13/Windows. La evidencia está en
+`.generated/licenses/inventory.json` y `notices/`. El runtime ya no requiere
+los motores OCR/benchmark como dependencias de la instalación digital.
+
+`requirements-mvp.lock` fija versiones transitivas y hashes; el wheel 0.7.0
+se construyó e instaló en un segundo entorno vacío, fuera del código fuente.
+La consulta `pip-audit` del 2026-11-10 no encontró vulnerabilidades conocidas
+en ese lock y generó `.generated/release-check/sbom.json` en formato CycloneDX.
+El comando reproducible es `python -m scripts.check_release --audit`.
+
+El inventario y SBOM no son un dictamen legal ni cierran F0-09. Antes de
+distribuir, revisar los avisos del binario PDFium y las demás wheels entregadas,
+incluir los textos requeridos y resolver el modelo de costo. Cualquier
+distribución con OCR necesita inventariar además sus ejecutables y modelos.
+
+## Evidencia histórica del prototipo ampliado
+
+Historial al 2026-10-08. Estado: inventario técnico generado; revisión de distribución y cumplimiento pendiente. Este documento reemplaza las afirmaciones anteriores de cumplimiento completo, que no estaban verificadas.
 
 ## Entorno observado
 

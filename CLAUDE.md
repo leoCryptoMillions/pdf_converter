@@ -2,20 +2,42 @@
 
 Comprehensive guidance for Claude Code and development teams working with the PDF Converter project.
 
+## Active implementation — 2026-11-10
+
+The supported product is MVP 0.7.0: one trusted user, one digital PDF at a time,
+Word/Excel/TXT, running `apps.local_review_ui` on Python 3.13. The five-document
+pilot was accepted on 2026-10-28; the general F0 gate remains pending.
+`docs/ALCANCE.md` and the current README govern this scope. Actual versions and
+hashes are in `requirements-mvp.lock` / `requirements-mvp-dev.lock`; install
+with `--require-hashes`. Run `python -m scripts.check_release --audit` for the
+full local check; Windows was verified, the prepared Linux matrix has not run.
+
+The architecture and examples below describe the target platform and historical
+design. Accounts, DB, broker, distributed workers/storage and extra formats are
+not implemented by the MVP. They must not be introduced as setup requirements.
+Effective security/configuration are in `docs/SEGURIDAD.md` and CONFIG_GUIDE.md;
+partial credentials are rejected, memory limits fail closed, uploads are bounded
+before spooling, and completed web jobs expire. CLI/corpus/pilot evidence is
+outside the web TTL. No production sandbox or multi-user controls are claimed.
+
+See `docs/CORRECCIONES_MVP_0.7.0.md` for H01–H12 changes and evidence. Preserve
+the existing pilot acceptance and the manual-only Actions policy. This local
+delivery does not update or certify a remote deployment.
+
 ## Project Overview
 
-**PDF Converter** is a web application that converts PDF documents (digital, scanned, and mixed) into editable and reusable formats: Excel (.xlsx), Word (.docx), CSV, TXT, Markdown, JSON, and PNG/JPEG. The project emphasizes security, data integrity, and transparent handling of OCR uncertainty.
+The **target PDF Converter platform** covers digital, scanned, and mixed PDFs and multiple output formats. The active MVP subset is defined above. The project emphasizes security, data integrity, and transparent handling of OCR uncertainty.
 
 Core Design Principle: Preserve original content and conversion provenance. Never hide errors, fabricate confidence scores, or sacrifice editability for false fidelity.
 
 **Plan Reference:** [PLAN_APP_CONVERSION_PDF_v1.0.md](./PLAN_APP_CONVERSION_PDF_v1.0.md)  
 **Progress Tracking:** [docs/AVANCE.md](./docs/AVANCE.md)  
 **Current Phase:** F0 - Viability Assessment  
-**Last Updated:** 2026-10-07
+**Last Updated:** 2026-11-10 (active scope); target architecture examples originated 2026-10-07
 
 ---
 
-## Technology Stack (Pinned Versions)
+## Target Technology Stack (historical design; MVP locks take precedence)
 
 ### Core Backend
 - **Language**: Python 3.11+ (type hints required)
@@ -62,11 +84,11 @@ Core Design Principle: Preserve original content and conversion provenance. Neve
 
 **Rendering & Validation:**
 - **pypdfium2** 4.24+ for page rasterization, bounding boxes
-  - Audit binary distribution; disclose LGPL implications
-  - Use only for internal validation, not user output by default
+  - Audit PDFium and bundled third-party notices; see docs/LICENCIAS.md
+  - MVP 0.7.0 uses pinned 5.14.0 for images/graphics in Office output as well as validation
 
 ### Office Format Export
-- **Excel**: openpyxl 3.11+ with styles
+- **Excel**: openpyxl 3.1.5 in the active MVP, with styles
   - No formulas from user content; convert formulas to text values
   - Use Decimal type for currency; explicit text type for RFC/CLABE/codes
   - Per-table sheet naming; Origin + Warnings sheets

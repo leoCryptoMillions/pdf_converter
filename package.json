@@ -1,0 +1,12 @@
+{
+  "name": "pdf-converter-checks",
+  "version": "0.7.0",
+  "private": true,
+  "scripts": {
+    "test:e2e": "node tests/e2e/local_review_ui.cjs",
+    "test:dashboard": "node tests/e2e/gaps_dashboard.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.65.0"
+  }
+}

@@ -65,8 +65,6 @@ def ocr_page_text(pdf_path: Path, number: int, *, psm: int = 3, max_pixels: int 
                   dpi: int = 300, preprocess: str = "none") -> str:
     """Render only an annotated full page at 300 DPI with a bounded pixel budget."""
     import pypdfium2
-    import pytesseract
-    from benchmarks import ocr_benchmark  # configure native binaries/installed languages
 
     with pypdfium2.PdfDocument(str(pdf_path)) as pdf:
         page = pdf[number - 1]
@@ -77,6 +75,8 @@ def ocr_page_text(pdf_path: Path, number: int, *, psm: int = 3, max_pixels: int 
             scale = dpi / 72
             if (int(width * scale) + 1) * (int(height * scale) + 1) > max_pixels:
                 raise ValueError("Rendered page exceeds OCR pixel budget")
+            import pytesseract
+            from benchmarks import ocr_benchmark  # configure optional native binaries after validation
             bitmap = page.render(scale=scale)
             try:
                 image = bitmap.to_pil()

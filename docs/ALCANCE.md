@@ -4,13 +4,14 @@
 
 **Fecha base:** 2026-10-07 · Recorte del MVP local: 2026-10-27
 
-**Estado:** Prototipo local F0; Gate F0 pendiente
+**Estado:** MVP local 0.7.0; piloto de cinco documentos aceptado el 2026-10-28; Gate F0 pendiente
 
 ## Entrega activa: MVP local de Word y Excel
 
 Prioridad autorizada el 2026-10-27: terminar primero un piloto local de un
 usuario. Esta sección prevalece sobre el alcance ampliado de las tablas
-posteriores. La aceptación humana sigue pendiente; no se declara aprobado
+posteriores. La aceptación humana del piloto de cinco documentos está registrada;
+la calidad de clases ajenas a esa muestra sigue pendiente. No se declara aprobado
 el Gate F0 ni implementada la plataforma F1.
 
 Incluye carga de un PDF digital, selección de páginas, conversión a DOCX y
@@ -18,7 +19,7 @@ XLSX, TXT existente, advertencias y descarga. Se reutiliza la interfaz de
 `apps.local_review_ui`, con 25 MB y 100 páginas por PDF. No se añaden
 dependencias de React, base de datos ni cola.
 
-Desde el 2026-10-27, la misma interfaz también se despliega en Railway
+El historial registra desde el 2026-10-27 un despliegue de la misma interfaz en Railway
 (https://mvp-web-production.up.railway.app) para un solo usuario de
 confianza, detrás de HTTP Basic Auth — ver
 [ADR 0006](adr/0006-mvp-railway-hardening.md). El uso local en `127.0.0.1`
@@ -26,7 +27,12 @@ sigue disponible y sin autenticación (README); el despliegue remoto añade
 aislamiento por subproceso, timeout y límite de memoria por conversión
 (`apps/conversion_isolation.py`), concurrencia de 1 conversión a la vez y
 limpieza TTL de `.generated/web_ui/` — ninguno de estos controles sustituye
-cuentas reales ni multi-tenencia, que siguen fuera de alcance.
+cuentas reales ni multi-tenencia, que siguen fuera de alcance. Desde 0.7.0 el
+modo remoto es explícito y exige ambas credenciales; el límite de memoria se
+aplica con Job Objects en Windows y RLIMIT_AS en POSIX, rechazando la conversión
+si no puede activarse. Las cargas se limitan durante su recepción y solo se
+publican trabajos completos. Las descargas caducan por fecha, sin renovación por
+acceso. Se soporta una réplica y un proceso del servidor. Esta entrega corrige el código local; no verifica ni actualiza ese servicio remoto.
 
 Se posponen cuentas, organizaciones, cuotas, lotes, concurrencia de usuarios,
 infraestructura distribuida, formatos nuevos y mejoras de OCR. OCR existente
@@ -37,7 +43,7 @@ el período de retención configurado (`RETENTION_HOURS`, 24 horas por defecto).
 
 ### Criterios de cierre del piloto
 
-1. Arrancar la app con `requirements-mvp.txt` y el comando del README.
+1. Arrancar la app con `requirements-mvp.lock` y el comando del README (dependencias directas declaradas en requirements-mvp.txt).
 2. Completar carga → conversión → advertencias → descarga con los cinco
    documentos autorizados seleccionados en `benchmarks.pilot_local`.
 3. Descargar y reabrir Word/Excel, conservar todos los valores de las celdas
@@ -58,8 +64,9 @@ la lista de revisión permanecen privados en `.generated/`.
 
 ### Política de pruebas durante el MVP
 
-`python -m pytest -q` selecciona el marcador `mvp`: 44 de 88 casos a la fecha
-de este recorte, exactamente el 50%. Es una selección explícita por riesgo,
+`python -m pytest -q` selecciona el marcador `mvp`. Consultar el conteo actual con
+`python -m pytest --collect-only -q`; 44/88 era el corte histórico de octubre.
+Es una selección explícita por riesgo,
 no aleatoria: integridad de Excel, texto editable de Word, ligaduras,
 límites/rechazos de PDF, selección de páginas, carga/descarga y seguridad
 básica de las rutas. La proporción puede variar al incorporar regresiones;
